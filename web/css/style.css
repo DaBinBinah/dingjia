@@ -190,10 +190,22 @@ input, textarea { font-family: inherit; }
   cursor: pointer;
 }
 .card:active { transform: scale(0.99); }
-.card.triggered-buy { box-shadow: 0 0 0 2px var(--buy) inset, var(--shadow); }
-.card.triggered-sell { box-shadow: 0 0 0 2px var(--sell) inset, var(--shadow); }
+.card.triggered-buy {
+  border: 2px solid var(--buy);
+  box-shadow: 0 4px 18px rgba(7, 193, 96, 0.22);
+  background: linear-gradient(180deg, rgba(7, 193, 96, 0.05) 0%, #ffffff 45%);
+}
+.card.triggered-sell {
+  border: 2px solid var(--sell);
+  box-shadow: 0 4px 18px rgba(250, 81, 81, 0.22);
+  background: linear-gradient(180deg, rgba(250, 81, 81, 0.05) 0%, #ffffff 45%);
+}
 .card.paused { opacity: 0.62; }
-.card.done { box-shadow: 0 0 0 2px rgba(88, 86, 214, 0.45) inset, var(--shadow); }
+.card.done {
+  border: 2px solid var(--purple);
+  box-shadow: 0 4px 16px rgba(88, 86, 214, 0.18);
+  background: linear-gradient(180deg, rgba(88, 86, 214, 0.04) 0%, #ffffff 45%);
+}
 
 .card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .card-name { font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: wrap; }
@@ -201,6 +213,7 @@ input, textarea { font-family: inherit; }
 .chip {
   flex: none; font-size: 11px; font-weight: 600;
   padding: 3px 8px; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 4px;
 }
 .chip-on { background: rgba(0, 122, 255, 0.1); color: var(--blue); }
 .chip-off { background: rgba(0, 0, 0, 0.05); color: var(--text-2); }
@@ -208,6 +221,99 @@ input, textarea { font-family: inherit; }
 .chip-sell { background: rgba(250, 81, 81, 0.12); color: var(--sell); }
 .chip-warn { background: rgba(255, 159, 10, 0.14); color: var(--warn); }
 .chip-done { background: rgba(88, 86, 214, 0.12); color: var(--purple); }
+
+/* 醒目达标置顶徽章 */
+.chip-buy-hit {
+  background: rgba(7, 193, 96, 0.16);
+  color: #059669;
+  border: 1px solid rgba(7, 193, 96, 0.38);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.chip-sell-hit {
+  background: rgba(250, 81, 81, 0.16);
+  color: #dc2626;
+  border: 1px solid rgba(250, 81, 81, 0.38);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* 呼吸动效小圆点 */
+.pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  animation: pulseGlow 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.pulse-dot.buy {
+  background-color: var(--buy);
+}
+.pulse-dot.sell {
+  background-color: var(--sell);
+}
+.pulse-dot.purple {
+  background-color: var(--purple);
+}
+@keyframes pulseGlow {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  50% { transform: scale(1.3); opacity: 1; filter: drop-shadow(0 0 4px currentColor); }
+  100% { transform: scale(0.9); opacity: 0.8; }
+}
+
+/* 达标置顶右上角标签 */
+.card-pin-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.2px;
+  flex: none;
+}
+.card-pin-badge.buy {
+  background: rgba(7, 193, 96, 0.15);
+  color: #059669;
+}
+.card-pin-badge.sell {
+  background: rgba(250, 81, 81, 0.15);
+  color: #dc2626;
+}
+.card-pin-badge.done {
+  background: rgba(88, 86, 214, 0.15);
+  color: var(--purple);
+}
+
+/* 行内达标高亮提示条 */
+.line.hit-highlight {
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+.line.hit-highlight.buy {
+  background: rgba(7, 193, 96, 0.12);
+  color: #059669;
+  border: 1px solid rgba(7, 193, 96, 0.28);
+}
+.line.hit-highlight.sell {
+  background: rgba(250, 81, 81, 0.12);
+  color: #dc2626;
+  border: 1px solid rgba(250, 81, 81, 0.28);
+}
 
 /* ---------- 通用精美空状态卡片 ---------- */
 .empty {

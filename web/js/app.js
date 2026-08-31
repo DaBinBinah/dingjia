@@ -460,12 +460,12 @@ function updateRadarCard() {
 function lineState(w, side) {
   const line = side === 'buy' ? w.buyPrice : w.sellPrice;
   if (line == null) return null;
-  if (typeof w.currentPrice !== 'number') return { cls: 'st-wait', text: '待行情', reached: false };
+  if (typeof w.currentPrice !== 'number') return { cls: 'st-wait', text: '待行情', reached: false, side };
   const price = w.currentPrice;
 
   if (side === 'buy') {
     if (price <= line) {
-      return { cls: 'st-ok-buy', text: '🟢 已达到买入价格', reached: true };
+      return { cls: 'st-ok-buy', text: '🎯 现价已达到买入目标价', reached: true, side: 'buy' };
     }
     const diff = price - line;
     const pct = (diff / price) * 100;
@@ -473,11 +473,12 @@ function lineState(w, side) {
       cls: 'st-near-buy',
       text: `🟢 还需下跌 ¥${fmtPrice(diff, w.type)}（${pct.toFixed(1)}%） 到达买入价 ¥${fmtPrice(line, w.type)}`,
       reached: false,
+      side: 'buy',
     };
   }
 
   if (price >= line) {
-    return { cls: 'st-ok-sell', text: '🔴 已达到卖出价格', reached: true };
+    return { cls: 'st-ok-sell', text: '🎯 现价已达到卖出目标价', reached: true, side: 'sell' };
   }
   const diff = line - price;
   const pct = (diff / price) * 100;
@@ -485,6 +486,7 @@ function lineState(w, side) {
     cls: 'st-near-sell',
     text: `🟡 还需上涨 ¥${fmtPrice(diff, w.type)}（${pct.toFixed(1)}%） 到达卖出价 ¥${fmtPrice(line, w.type)}`,
     reached: false,
+    side: 'sell',
   };
 }
 
@@ -524,6 +526,23 @@ function renderWatches() {
   }
   empty.hidden = true;
 
+  // 🎯 智能置顶排序：达标标的排在最前列，正常监控标的中次之，已暂停标的沉底
+  watches.sort((a, b) => {
+    const aInBuy = a.buyPrice != null && a.currentPrice != null && a.currentPrice <= a.buyPrice;
+    const aInSell = a.sellPrice != null && a.currentPrice != null && a.currentPrice >= a.sellPrice;
+    const aHit = a.enabled && (aInBuy || aInSell || a.buyAchievedAt || a.sellAchievedAt || a.buyTriggered || a.sellTriggered);
+
+    const bInBuy = b.buyPrice != null && b.currentPrice != null && b.currentPrice <= b.buyPrice;
+    const bInSell = b.sellPrice != null && b.currentPrice != null && b.currentPrice >= b.sellPrice;
+    const bHit = b.enabled && (bInBuy || bInSell || b.buyAchievedAt || b.sellAchievedAt || b.buyTriggered || b.sellTriggered);
+
+    const aScore = aHit ? 0 : a.enabled ? 1 : 2;
+    const bScore = bHit ? 0 : b.enabled ? 1 : 2;
+
+    if (aScore !== bScore) return aScore - bScore;
+    return 0;
+  });
+
   // 持仓快速映射
   const holdingMap = new Map();
   for (const h of state.portfolio.holdings || []) holdingMap.set(h.code, h);
@@ -537,16 +556,29 @@ function renderWatches() {
       const inSell = w.sellPrice != null && w.currentPrice != null && w.currentPrice >= w.sellPrice;
       const cardCls = ['card'];
       if (!w.enabled) cardCls.push('paused');
-      else if (w.enabled && (w.buyAchievedAt || w.sellAchievedAt)) cardCls.push('done');
-      else if (w.enabled && inBuy) cardCls.push('triggered-buy');
-      else if (w.enabled && inSell) cardCls.push('triggered-sell');
+      else if (w.enabled && (inBuy || inSell)) {
+        if (inBuy) cardCls.push('triggered-buy');
+        else cardCls.push('triggered-sell');
+      } else if (w.enabled && (w.buyAchievedAt || w.sellAchievedAt)) cardCls.push('done');
 
       let badge = '';
-      if (w.enabled && (w.buyAchievedAt || w.sellAchievedAt)) badge = '<span class="chip chip-done">🏁 已达成</span>';
-      else if (w.enabled && inBuy) badge = '<span class="chip chip-buy">🔔 已达到买入价格</span>';
-      else if (w.enabled && inSell) badge = '<span class="chip chip-sell">🔔 已达到卖出价格</span>';
-      else if (!w.enabled) badge = '<span class="chip chip-off">已暂停</span>';
-      else badge = '<span class="chip chip-on">监控中</span>';
+      let pinBadge = '';
+      if (w.enabled && (inBuy || inSell)) {
+        if (inBuy) {
+          badge = '<span class="chip chip-buy-hit"><span class="pulse-dot buy"></span>🎯 已达到买入价格 · 置顶</span>';
+          pinBadge = '<div class="card-pin-badge buy">📌 达标置顶</div>';
+        } else {
+          badge = '<span class="chip chip-sell-hit"><span class="pulse-dot sell"></span>🎯 已达到卖出价格 · 置顶</span>';
+          pinBadge = '<div class="card-pin-badge sell">📌 达标置顶</div>';
+        }
+      } else if (w.enabled && (w.buyAchievedAt || w.sellAchievedAt)) {
+        badge = '<span class="chip chip-done"><span class="pulse-dot purple"></span>🏁 目标已达成</span>';
+        pinBadge = '<div class="card-pin-badge done">🏁 已达成</div>';
+      } else if (!w.enabled) {
+        badge = '<span class="chip chip-off">已暂停</span>';
+      } else {
+        badge = '<span class="chip chip-on">监控中</span>';
+      }
 
       const h = holdingMap.get(w.code);
       let holdingTag = '';
@@ -585,8 +617,20 @@ function renderWatches() {
       const buyLine = lineState(w, 'buy');
       const sellLine = lineState(w, 'sell');
       const lines = [];
-      if (buyLine) lines.push(`<div class="line"><span class="st ${buyLine.cls}">${esc(buyLine.text)}</span></div>`);
-      if (sellLine) lines.push(`<div class="line"><span class="st ${sellLine.cls}">${esc(sellLine.text)}</span></div>`);
+      if (buyLine) {
+        if (buyLine.reached) {
+          lines.push(`<div class="line hit-highlight buy"><span>${esc(buyLine.text)}</span> <span>¥${fmtPrice(w.buyPrice, w.type)}</span></div>`);
+        } else {
+          lines.push(`<div class="line"><span class="st ${buyLine.cls}">${esc(buyLine.text)}</span></div>`);
+        }
+      }
+      if (sellLine) {
+        if (sellLine.reached) {
+          lines.push(`<div class="line hit-highlight sell"><span>${esc(sellLine.text)}</span> <span>¥${fmtPrice(w.sellPrice, w.type)}</span></div>`);
+        } else {
+          lines.push(`<div class="line"><span class="st ${sellLine.cls}">${esc(sellLine.text)}</span></div>`);
+        }
+      }
 
       const div = thsCode ? state.dividends[thsCode] : null;
       let divRow = '';
@@ -639,6 +683,7 @@ function renderWatches() {
               <div class="card-name"><span class="nm">${esc(w.name)}</span>${badge}${holdingTag}</div>
               <div class="card-code">${esc(w.code)} · ${w.type === 'etf' ? 'ETF' : '股票'}</div>
             </div>
+            ${pinBadge}
           </div>
           <div class="card-price-row">
             <span class="card-price ${priceStr == null ? 'na' : ''}">${priceStr == null ? '暂无行情' : `¥${priceStr}`}</span>
