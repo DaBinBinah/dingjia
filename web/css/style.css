@@ -1201,9 +1201,415 @@ body.detail-open .root { padding-bottom: calc(32px + env(safe-area-inset-bottom)
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
-.ag-col b.cond {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--text-2);
+.explain-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--text-3);
+  margin-left: 4px;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: color 0.15s;
 }
+.explain-dot:hover {
+  color: var(--blue);
+}
+
+/* ---------------- 📖 新手指南引导条 (首页) ---------------- */
+.guide-banner-card {
+  background: linear-gradient(135deg, #eef7ff 0%, #f4f5f7 100%);
+  border: 1px solid rgba(0, 122, 255, 0.18);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  margin-bottom: 12px;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.guide-banner-card:active { transform: scale(0.99); }
+.gbc-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.gbc-icon { font-size: 24px; line-height: 1; flex: none; }
+.gbc-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gbc-text b { font-size: 13.5px; font-weight: 700; color: var(--text); }
+.gbc-text span { font-size: 11.5px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gbc-arrow { font-size: 11.5px; font-weight: 700; color: var(--blue); flex: none; }
+
+/* 设置弹窗内的新手指南入口 */
+.guide-setting-entry {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  margin-bottom: 14px;
+}
+.gse-left { display: flex; align-items: center; gap: 8px; }
+.gse-icon { font-size: 20px; }
+.gse-left b { font-size: 13px; font-weight: 700; display: block; }
+.gse-left p { font-size: 11px; color: var(--text-2); margin: 0; }
+.gse-arrow { font-size: 11.5px; color: var(--blue); font-weight: 600; }
+
+/* ---------------- 📖 新手指南独立页面 ---------------- */
+.guide-header-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.ghb-info { display: flex; align-items: baseline; justify-content: space-between; flex: 1; min-width: 0; }
+.ghb-title { font-size: 20px; font-weight: 800; letter-spacing: -0.3px; margin: 0; }
+.guide-progress-badge {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--blue);
+  background: rgba(0, 122, 255, 0.1);
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 欢迎 Hero 卡片 */
+.guide-hero-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 18px 16px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--line);
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.gh-tag {
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 700;
+  color: #059669;
+  background: rgba(7, 193, 96, 0.12);
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+.gh-h1 {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: var(--text);
+  margin: 0;
+}
+.gh-sub {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin: 0;
+}
+.gh-btn-group {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.gh-btn-group .btn { flex: 1; font-size: 13px; padding: 9px; }
+
+/* 搜索栏 */
+.guide-search-box {
+  margin-bottom: 12px;
+}
+.guide-search-box input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: 13.5px;
+  box-shadow: var(--shadow);
+}
+.guide-search-box input:focus {
+  border-color: var(--blue);
+  outline: none;
+}
+
+/* 章节胶囊药丸导航 (水平滚动) */
+.guide-pills-nav {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin-bottom: 14px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.guide-pills-nav::-webkit-scrollbar { display: none; }
+.guide-pill {
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.guide-pill.on {
+  background: var(--text);
+  color: #ffffff;
+  border-color: var(--text);
+}
+
+/* 各章节卡片 */
+.guide-section {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 18px 16px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--line);
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.gs-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+}
+.gs-num {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--blue);
+  background: rgba(0, 122, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.gs-title {
+  font-size: 16.5px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+.gs-lead {
+  font-size: 13px;
+  color: var(--text-2);
+  margin: 0;
+}
+
+/* 极简四步网格 */
+.guide-steps-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+@media (min-width: 600px) {
+  .guide-steps-grid { grid-template-columns: 1fr 1fr; }
+}
+.g-step-card {
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.gsc-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--blue);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.gsc-content b {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+.gsc-content p {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* 通用内容卡片 */
+.guide-card {
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.guide-card h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+.guide-card p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  margin: 0;
+}
+.guide-card .text-sub {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.45;
+}
+
+/* 表格对比 */
+.guide-table-wrap {
+  overflow-x: auto;
+  margin-top: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.guide-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  background: #ffffff;
+}
+.guide-table th, .guide-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+.guide-table th {
+  background: rgba(0, 0, 0, 0.03);
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* 提示与警告框 */
+.guide-tip-box {
+  background: rgba(0, 122, 255, 0.06);
+  border: 1px solid rgba(0, 122, 255, 0.2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.45;
+}
+.guide-warning-box {
+  background: rgba(255, 149, 0, 0.08);
+  border: 1px solid rgba(255, 149, 0, 0.25);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #b45309;
+  line-height: 1.45;
+}
+
+/* 避坑列表 */
+.guide-pitfalls-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.g-pitfall-item {
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.gpi-num {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #dc2626;
+  background: rgba(255, 59, 48, 0.12);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.gpi-content b {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.gpi-content p {
+  font-size: 11.5px;
+  color: var(--text-2);
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* FAQ 列表 */
+.guide-faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.faq-item {
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+}
+.faq-item[open] {
+  background: #ffffff;
+  border-color: var(--line);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+.faq-q {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  outline: none;
+}
+.faq-a {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line);
+}
+
+/* 底部 CTA */
+.guide-foot-cta {
+  background: linear-gradient(135deg, #1d1d1f 0%, #3a3a3c 100%);
+  color: #ffffff;
+  border-radius: var(--radius);
+  padding: 24px 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  margin-bottom: 24px;
+}
+.guide-foot-cta h3 { font-size: 18px; font-weight: 800; margin: 0; }
+.guide-foot-cta p { font-size: 12.5px; opacity: 0.85; margin: 0 0 8px; }
+.guide-foot-cta .btn { min-width: 200px; }
+
 

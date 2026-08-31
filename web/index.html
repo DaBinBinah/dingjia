@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f5f5f7">
 <title>盯价 - 你定价格，我来盯。</title>
-<link rel="stylesheet" href="css/style.css?v=20260831pin3">
+<link rel="stylesheet" href="css/style.css?v=20260831guide4">
 </head>
 <body>
 
@@ -36,6 +36,18 @@
 
   <!-- 视图 1：监控列表 -->
   <main id="viewWatches">
+    <!-- 📖 新手指南引导条 -->
+    <div class="guide-banner-card" id="homeGuideBanner" role="button" tabindex="0">
+      <div class="gbc-left">
+        <span class="gbc-icon">📖</span>
+        <div class="gbc-text">
+          <b>新手指南 · 第一次使用？先看这里</b>
+          <span>5分钟看懂股票与ETF，学会使用盯价</span>
+        </div>
+      </div>
+      <span class="gbc-arrow">开始学习 →</span>
+    </div>
+
     <!-- 🎯 我的投资雷达与今日摘要 -->
     <section class="radar-card" id="radarCard">
       <div class="radar-header">
@@ -770,6 +782,435 @@
     <button id="loadMoreBtn" class="btn btn-block" hidden>加载更多</button>
   </main>
 
+  <!-- 视图 7：📖 盯价 · 新手指南 (面向新手股民的完整使用与入门指南) -->
+  <main id="viewGuide" hidden>
+    <!-- 顶部返回导航 -->
+    <div class="guide-header-bar">
+      <button id="guideBackBtn" class="icon-btn" aria-label="返回">←</button>
+      <div class="ghb-info">
+        <h2 class="ghb-title">📖 盯价 · 新手指南</h2>
+        <span class="guide-progress-badge" id="guideProgressBadge">已了解 0/8 节</span>
+      </div>
+    </div>
+
+    <!-- 顶部欢迎卡片 -->
+    <section class="guide-hero-card">
+      <div class="gh-tag">🌱 零基础起步</div>
+      <h1 class="gh-h1">你定价格，我来盯。</h1>
+      <p class="gh-sub">盯价不是帮你预测股票涨跌，而是帮助你管理自己已经决定关注的股票和 ETF。当市场价格达到你设定的买入或卖出价时，系统第一时间提醒你。</p>
+      <div class="gh-btn-group">
+        <button class="btn btn-primary" id="btnGuideJumpQuick">⚡ 5分钟快速上手</button>
+        <button class="btn btn-outline" id="btnGuideGoHome">直接开始使用</button>
+      </div>
+    </section>
+
+    <!-- 搜索栏 -->
+    <div class="guide-search-box">
+      <input type="search" id="guideSearchInput" placeholder="🔍 搜你想了解的：ETF、买入价、触达、分红、浮盈…" aria-label="搜索新手指南">
+    </div>
+
+    <!-- 章节快速导航胶囊 -->
+    <div class="guide-pills-nav" id="guidePillsNav">
+      <button class="guide-pill on" data-sec="secQuick">⚡ 快速上手</button>
+      <button class="guide-pill" data-sec="secConcept">🏢 股票与ETF</button>
+      <button class="guide-pill" data-sec="secQuote">📈 看懂行情</button>
+      <button class="guide-pill" data-sec="secTouch">🎯 目标触达</button>
+      <button class="guide-pill" data-sec="secPortfolio">💼 资产与持仓</button>
+      <button class="guide-pill" data-sec="secDividend">💰 分红雷达</button>
+      <button class="guide-pill" data-sec="secPitfalls">⚠️ 避坑10条</button>
+      <button class="guide-pill" data-sec="secFaq">❓ 常见问题</button>
+    </div>
+
+    <!-- 第 0 课：5分钟极简四步上手 -->
+    <section class="guide-section" id="secQuick" data-guide-sec="0">
+      <div class="gs-head">
+        <span class="gs-num">01</span>
+        <h3 class="gs-title">⚡ 5分钟极简快速上手</h3>
+      </div>
+      <p class="gs-lead">无需复杂的炒股理论，使用盯价只需要轻松四步：</p>
+      <div class="guide-steps-grid">
+        <div class="g-step-card">
+          <div class="gsc-num">1</div>
+          <div class="gsc-content">
+            <b>添加股票 / ETF</b>
+            <p>输入你真正关注的股票名称或 6 位代码（例如：计算机ETF <code>512720</code> 或 博威合金 <code>601137</code>）。</p>
+          </div>
+        </div>
+        <div class="g-step-card">
+          <div class="gsc-num">2</div>
+          <div class="gsc-content">
+            <b>设置你的价格线</b>
+            <p>设定你心仪的<strong>买入价格</strong>（跌到多少你想关注）和<strong>卖出价格</strong>（涨到多少你想止盈）。</p>
+          </div>
+        </div>
+        <div class="g-step-card">
+          <div class="gsc-num">3</div>
+          <div class="gsc-content">
+            <b>开启自动盯盘</b>
+            <p>交易日 09:00~15:00 期间，云端每分钟自动巡检行情，无需你时时刻刻盯着手机看盘。</p>
+          </div>
+        </div>
+        <div class="g-step-card">
+          <div class="gsc-num">4</div>
+          <div class="gsc-content">
+            <b>达标置顶提醒</b>
+            <p>价格一旦达标，系统自动高亮置顶并记录秒级触达快照，由你自己决定是否打开券商操作。</p>
+          </div>
+        </div>
+      </div>
+      <div class="guide-tip-box">
+        💡 <b>一句话心法</b>：盯价是你的“专属哨兵”。你负责定计划，系统负责帮你盯，把宝贵时间留给生活与工作。
+      </div>
+    </section>
+
+    <!-- 第 1 课：股票与 ETF 基础认识 -->
+    <section class="guide-section" id="secConcept" data-guide-sec="1">
+      <div class="gs-head">
+        <span class="gs-num">02</span>
+        <h3 class="gs-title">🏢 股票与 ETF 是什么？</h3>
+      </div>
+      
+      <div class="guide-card">
+        <h4>1. 股票是什么？</h4>
+        <p>股票可以简单理解为：<strong>你购买了一家上市公司的一小部分权益</strong>。</p>
+        <p class="text-sub">例如你买了某家公司的股票，并不代表你直接搬走它的工厂，而是代表你按比例享有这家上市公司的经营发展成果和分红权益。股票价格受单家公司经营业绩、行业变化以及市场情绪共同影响。</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>2. ETF 是什么？</h4>
+        <p>ETF（交易型开放式指数基金）可以通俗理解为：<strong>“一篮子资产打包在一起的一揽子基金”</strong>。</p>
+        <p class="text-sub">例如：沪深300 ETF 跟踪中国最具代表性的 300 家龙头企业；半导体 ETF 跟踪几十家半导体产业链公司。买入一份 ETF，相当于一键按比例买入了一整篮子资产，避免了“选错单只个股暴雷”的风险。</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>3. 股票与 ETF 的最直观区别</h4>
+        <div class="guide-table-wrap">
+          <table class="guide-table">
+            <thead>
+              <tr>
+                <th>对比维度</th>
+                <th>股票</th>
+                <th>ETF</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>买的是什么</b></td>
+                <td>单家上市公司的股份</td>
+                <td>一篮子资产/指数的基金份额</td>
+              </tr>
+              <tr>
+                <td><b>价格变动</b></td>
+                <td>受单家公司业绩影响大</td>
+                <td>受一篮子成分股整体走势影响</td>
+              </tr>
+              <tr>
+                <td><b>暴雷风险</b></td>
+                <td>单家公司可能出现重大黑天鹅</td>
+                <td>分散于几十/上百只资产，无单点破产风险</td>
+              </tr>
+              <tr>
+                <td><b>分红规则</b></td>
+                <td>按上市公司年度/中期分红决议</td>
+                <td>按具体 ETF 基金合同规则与收益情况判断</td>
+              </tr>
+              <tr>
+                <td><b>适合人群</b></td>
+                <td>对单家公司有深入研究的投资者</td>
+                <td>希望把握行业或大盘整体趋势的普通新手</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="guide-card">
+        <h4>4. 股票代码是什么？</h4>
+        <p>股票/ETF 代码是证券在交易所的“身份证号”（如 <code>601137</code>、<code>512720</code>）。</p>
+        <p class="text-sub">代码本身只是代号，不代表价格高低。输入正确代码，系统才能准确获取其行情。</p>
+      </div>
+    </section>
+
+    <!-- 第 2 课：看懂行情与价格变动 -->
+    <section class="guide-section" id="secQuote" data-guide-sec="2">
+      <div class="gs-head">
+        <span class="gs-num">03</span>
+        <h3 class="gs-title">📈 看懂行情与价格变动</h3>
+      </div>
+
+      <div class="guide-card">
+        <h4>1. 当前价格</h4>
+        <p>这是交易所当前最新撮合成交的价格。</p>
+        <p class="text-sub">在交易时间内（09:30~11:30、13:00~15:00），买卖双方在不断挂单撮合，因此价格每时每刻都在变动，这是正常现象。</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>2. 涨跌幅（如 +2.73% 或 -1.50%）</h4>
+        <p>代表<strong>今天当前价格相对于昨天收盘价的涨跌百分比</strong>。</p>
+        <p class="text-sub">中国 A 股规定红色代表上涨（+），绿色代表下跌（-）。如果为 0.00% 则代表与昨天收盘价持平。</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>3. 年内最高收盘价 与 年内最低收盘价</h4>
+        <p>记录了今年以来该股票出现过的最高价与最低价区间。</p>
+        <p class="text-sub">帮助你一眼看清：当前价格是在“山顶”（接近年内高点）、“山腰”还是“谷底”（接近年内低点），避免盲目追高。</p>
+      </div>
+    </section>
+
+    <!-- 第 3 课：核心功能——买入价、卖出价与价格触达 -->
+    <section class="guide-section" id="secTouch" data-guide-sec="3">
+      <div class="gs-head">
+        <span class="gs-num">04</span>
+        <h3 class="gs-title">🎯 买入价、卖出价与目标价格触达</h3>
+      </div>
+
+      <div class="guide-card">
+        <h4>1. 什么是买入价格与卖出价格？</h4>
+        <p><strong>买入价格</strong>：你自己设定的“低吸关注价格线”。价格跌到或低于此线时，系统提醒你。</p>
+        <p><strong>卖出价格</strong>：你自己设定的“止盈目标价格线”。价格涨到或高于此线时，系统提醒你。</p>
+        <div class="guide-warning-box">
+          ⚠️ <b>特别注意</b>：买入价与卖出价是<strong>你自己设定的目标</strong>，绝不是系统给出的买卖建议。
+        </div>
+      </div>
+
+      <div class="guide-card">
+        <h4>2. 什么是“价格触达”（核心功能）？</h4>
+        <p>当市场价格<strong>第一次进入你的目标价格区域</strong>时，系统判定为一次【价格触达】。</p>
+        <p class="text-sub">系统会自动记录：<strong>触达日期、精确到秒的时间、触达单价、市场涨跌幅与日内成交快照</strong>。</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>3. 为什么收到提醒后，看到的价格可能变了？（重点理解）</h4>
+        <p>例如：14:32:18 系统检测到价格达到 ¥2.00 并发出提醒；但当你 14:33:05 打开手机时，当前价格可能已经变成了 ¥1.98。</p>
+        <p class="text-sub">这是完全正常的！因为股票价格每分每秒都在波动，从系统检测、推送通知到你看到消息之间存在真实的时间差。因此盯价特意为你记录了<strong>【触达历史】</strong>，让你清楚知道它曾经在哪一秒达到过目标。</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>4. 什么是“触达时间”？</h4>
+        <p>触达时间是系统检测到行情满足你目标条件的精准服务器时间（北京时间 Asia/Shanghai）。</p>
+        <p class="text-sub">它代表系统捕获到价格进入目标区的时刻，不代表单笔实时撮合成交时间。</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>5. 什么是“重新触达”？</h4>
+        <p>如果价格达标后又离开了目标区（例如从 2.00 涨到 2.05），系统会自动解除锁定；当价格再次重新进入目标区时，会生成一条全新的第 2 次独立触达记录，完整记录每次来回波动。</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>6. 为什么系统绝不直接告诉你“买”还是“卖”？</h4>
+        <p>因为价格达标只是一个客观条件，并不代表未来一定会继续涨或跌。最终的交易决策权永远属于你，盯价坚守纯粹、客观的中立工具定位。</p>
+      </div>
+    </section>
+
+    <!-- 第 4 课：个人资产与持仓管理 -->
+    <section class="guide-section" id="secPortfolio" data-guide-sec="4">
+      <div class="gs-head">
+        <span class="gs-num">05</span>
+        <h3 class="gs-title">💼 个人资产、持仓与盈亏管理</h3>
+      </div>
+
+      <div class="guide-card">
+        <h4>1. 监控 $\neq$ 持仓（必须分清）</h4>
+        <p><strong>监控</strong>：只是你把股票加入观察清单，你<strong>不一定拥有它</strong>。</p>
+        <p><strong>持仓</strong>：你真正用自己的钱买入并持有的股数和成本。</p>
+        <p class="text-sub">你可以只监控不持仓；也可以把已经买入的股票录入持仓，让系统帮你实时计算盈亏。</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>2. 持仓市值与成本价</h4>
+        <p><strong>持仓市值</strong> = 当前价格 × 持仓股数（代表当前持仓能值多少钱）。</p>
+        <p><strong>成本价</strong> = 你买入该股票时的平均成交单价。</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>3. 浮动盈亏 vs 已实现利润</h4>
+        <p><strong>浮动盈亏</strong> = 当前市值 - 买入总成本（账面浮盈/浮亏）。只要你还没在券商卖出，它每天都会随股价波动，<strong>不等于真正落袋的钱</strong>。</p>
+        <p><strong>已实现利润</strong>：只有真实在券商卖出股票后，赚到的差价才是真正落袋的利润。</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>4. 什么是补仓模拟与卖出模拟？</h4>
+        <p>这是内置的数学情景计算器：输入模拟加仓或减仓的金额，系统提前帮你测算<strong>加仓后的新平均成本</strong>或<strong>卖出后的理论利润</strong>。这只是纯数学测算，不会连接券商，不会发生真实交易。</p>
+      </div>
+    </section>
+
+    <!-- 第 5 课：分红雷达、股权登记日与股息率 -->
+    <section class="guide-section" id="secDividend" data-guide-sec="5">
+      <div class="gs-head">
+        <span class="gs-num">06</span>
+        <h3 class="gs-title">💰 分红雷达、股权登记日与股息率</h3>
+      </div>
+
+      <div class="guide-card">
+        <h4>1. 什么是分红？</h4>
+        <p>上市公司将经营赚取的利润，按持股比例以现金形式派发给股东。</p>
+        <div class="guide-warning-box">
+          ⚠️ <b>新手大误区</b>：分红不是“天上掉馅饼免费送钱”！除息日当天股票价格会相应扣减分红金额（除息），因此获得分红不等于无风险额外收益。
+        </div>
+      </div>
+
+      <div class="guide-card">
+        <h4>2. 什么是股权登记日？（最关键日期）</h4>
+        <p><strong>在股权登记日当天下午 15:00 收市时，只要你账户里还持有该股票，你就享有本次分红权益</strong>。</p>
+        <p class="text-sub">在股权登记日之后卖出股票，依然享有分红；在股权登记日之后才买入的，不享有本次分红。</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>3. 什么是除息日？</h4>
+        <p>进行除息价格调整的交易日（通常在股权登记日的下一个交易日），股价开盘基准价会下调对应的分红金额。</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>4. 什么是股息率？</h4>
+        <p><strong>股息率 = 每股分红金额 ÷ 当前股票价格</strong>。</p>
+        <p class="text-sub">例如股价 20 元，每股派发 0.8 元现金，股息率约 4.0%。股息率反映分红收益率水平，但不是未来的利息保证。</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>5. ETF 收益分配与股票分红的区别</h4>
+        <p>股票分红依据公司年度决议；ETF 收益分配依据基金合同与实际可供分配利润。盯价严格基于真实公告数据展示，<strong>如果 ETF 暂无分红方案，系统会自动纯净隐藏，绝不显示误导性的 0%</strong>。</p>
+      </div>
+    </section>
+
+    <!-- 第 6 课：新手避坑 10 件事 -->
+    <section class="guide-section" id="secPitfalls" data-guide-sec="6">
+      <div class="gs-head">
+        <span class="gs-num">07</span>
+        <h3 class="gs-title">⚠️ 新手最容易误解的 10 件事（避坑守则）</h3>
+      </div>
+      
+      <div class="guide-pitfalls-list">
+        <div class="g-pitfall-item">
+          <span class="gpi-num">1</span>
+          <div class="gpi-content">
+            <b>达到买入价格 $\neq$ 一定应该买</b>
+            <p>买入价是你自己设定的关注线，价格跌到这里只代表进入观察区，仍需根据当时大盘和基本面独立判断。</p>
+          </div>
+        </div>
+        <div class="g-pitfall-item">
+          <span class="gpi-num">2</span>
+          <div class="gpi-content">
+            <b>达到卖出价格 $\neq$ 一定应该卖</b>
+            <p>卖出价是你预设的目标线，达到后系统提醒你，由你自己决定是止盈、减仓还是继续持有。</p>
+          </div>
+        </div>
+        <div class="g-pitfall-item">
+          <span class="gpi-num">3</span>
+          <div class="gpi-content">
+            <b>收到提醒时价格可能已经变化</b>
+            <p>行情每秒波动，从系统检测到你打开查看存在时间差，请以查看时的实时最新行情为准。</p>
+          </div>
+        </div>
+        <div class="g-pitfall-item">
+          <span class="gpi-num">4</span>
+          <div class="gpi-content">
+            <b>系统触达时间 $\neq$ 你的成交时间</b>
+            <p>系统记录的是程序捕获达标快照的时间，盯价不会替你下单，更不等于市场撮合成交。</p>
+          </div>
+        </div>
+        <div class="g-pitfall-item">
+          <span class="gpi-num">5</span>
+          <div class="gpi-content">
+            <b>浮盈 $\neq$ 真正赚到手的钱</b>
+            <p>账面浮盈只是纸面富贵，没有在券商卖出落袋前，任何回撤都可能吞噬浮盈。</p>
+          </div>
+        </div>
+        <div class="g-pitfall-item">
+          <span class="gpi-num">6</span>
+          <div class="gpi-content">
+            <b>理论利润 $\neq$ 实际利润</b>
+            <p>情景模拟基于数学假设，实际卖出还要扣除印花税、佣金等交易税费。</p>
+          </div>
+        </div>
+        <div class="g-pitfall-item">
+          <span class="gpi-num">7</span>
+          <div class="gpi-content">
+            <b>分红 $\neq$ 白捡额外现金</b>
+            <p>分红后股价会进行除息扣减，账户总资产在除息瞬间并不会凭空增加。</p>
+          </div>
+        </div>
+        <div class="g-pitfall-item">
+          <span class="gpi-num">8</span>
+          <div class="gpi-content">
+            <b>股息率 $\neq$ 未来的固定利息</b>
+            <p>上市公司未来经营变差可能会减少分红甚至不分红，股息率不是保本固收收益。</p>
+          </div>
+        </div>
+        <div class="g-pitfall-item">
+          <span class="gpi-num">9</span>
+          <div class="gpi-content">
+            <b>ETF $\neq$ 一定没有分红</b>
+            <p>很多红利 ETF 或高息 ETF 具有明确的定期分红机制，需看具体产品公告。</p>
+          </div>
+        </div>
+        <div class="g-pitfall-item">
+          <span class="gpi-num">10</span>
+          <div class="gpi-content">
+            <b>历史涨跌 $\neq$ 未来一定会重演</b>
+            <p>历史 K 线和过去表现仅供回顾复盘，市场瞬息万变，切勿把历史当作未来保证。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 第 7 课：常见问题 FAQ -->
+    <section class="guide-section" id="secFaq" data-guide-sec="7">
+      <div class="gs-head">
+        <span class="gs-num">08</span>
+        <h3 class="gs-title">❓ 新手常见问题 FAQ</h3>
+      </div>
+
+      <div class="guide-faq-list">
+        <details class="faq-item" open>
+          <summary class="faq-q">Q1：为什么股票价格一直在变？</summary>
+          <div class="faq-a">A：因为在交易时段内（09:30~11:30、13:00~15:00），市场上成千上万的买家和卖家在实时挂单撮合，每一笔撮合成交都会形成最新的当前价格。</div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-q">Q2：股票到了我的买入价，系统为什么没有自动买入？</summary>
+          <div class="faq-a">A：盯价是一款纯粹的<strong>个人投资监控与辅助工具</strong>，完全不连接任何券商接口，绝不会有任何自动下单、委托或扣款行为。所有交易均需你在自己的券商软件中自主操作。</div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-q">Q3：为什么我添加了监控，但在“我的资产”里看不到？</summary>
+          <div class="faq-a">A：【监控】和【资产持仓】是独立的。监控是观察清单，资产是你实际持有的股票。如果你已经买入了这只股票，请切换到底部【资产】Tab 点击“＋添加持仓”录入股数和成本。</div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-q">Q4：为什么有的 ETF 详情页看不到股息率和分红雷达？</summary>
+          <div class="faq-a">A：盯价严格以官方真实公告为准。如果该 ETF 当前没有正式公布生效的收益分配方案，系统会自动纯净隐藏该模块，绝不显示误导性的 0% 或假数据。</div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-q">Q5：分红后我的股票价格为什么跌了？</summary>
+          <div class="faq-a">A：这是交易所的“除息”规则。因为公司分派了一部分现金给股东，公司净资产相应减少，因此股价在除息日开盘时会按分红金额做等额下调，属于正常市场调整。</div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-q">Q6：为什么提醒记录里显示的价格和我现在看到的不一样？</summary>
+          <div class="faq-a">A：因为提醒记录记录的是<strong>“系统检测到达标那一秒的市场快照”</strong>。当你稍后打开查看时，市场已经经过了新的撮合交易，价格已经发生了变动。</div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-q">Q7：博威合金（601137）为什么买入价是 18、卖出价是 21？</summary>
+          <div class="faq-a">A：这是系统中的预设基准示范标的，方便你直观体验价格监控与触达提醒的完整流程。你可以随时添加你自己关注的其他股票或 ETF。</div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-q">Q8：如何才能获得最好的盯盘体验？</summary>
+          <div class="faq-a">A：建议在手机浏览器中打开并添加到手机主屏幕。在交易时段开启系统通知，设置好合理的买入和卖出价格线，安心工作生活即可。</div>
+        </details>
+      </div>
+    </section>
+
+    <!-- 底部行动按钮 -->
+    <div class="guide-foot-cta">
+      <h3>🚀 学会了吗？</h3>
+      <p>立即开启你的第一只股票或 ETF 监控</p>
+      <button class="btn btn-primary btn-lg" id="btnGuideFinish">返回监控首页 🎯</button>
+    </div>
+  </main>
+
   <!-- 底部状态栏 -->
   <footer class="status-bar" id="statusBar">行情状态：—</footer>
 
@@ -1200,6 +1641,7 @@
       <div class="explain-body" id="explainBody"></div>
       <div class="sheet-actions sheet-actions-center">
         <button class="btn btn-primary" data-close-explain>我知道了</button>
+        <button class="link-btn-sm" id="btnExplainGoGuide" style="margin-top:6px">📖 打开新手指南详细学习 →</button>
       </div>
     </div>
   </div>
@@ -1212,6 +1654,18 @@
         <button class="icon-btn" data-close-settings aria-label="关闭">✕</button>
       </div>
       <p class="imp-sub">设置交易费率用于理论回本价与税费测算，不连接券商</p>
+
+      <!-- 新手指南快捷入口卡片 -->
+      <div class="guide-setting-entry" id="settingGuideEntry" role="button" tabindex="0">
+        <div class="gse-left">
+          <span class="gse-icon">📖</span>
+          <div>
+            <b>盯价 · 新手指南</b>
+            <p>5分钟看懂股票与ETF，学会使用盯价</p>
+          </div>
+        </div>
+        <span class="gse-arrow">查看 →</span>
+      </div>
 
       <div class="field">
         <label>显示模式</label>
@@ -1253,7 +1707,7 @@
   <div id="toast" class="toast" hidden></div>
 </div>
 
-<script src="vendor/cloudbase.js?v=20260831pin3"></script>
-<script src="js/app.js?v=20260831pin3"></script>
+<script src="vendor/cloudbase.js?v=20260831guide4"></script>
+<script src="js/app.js?v=20260831guide4"></script>
 </body>
 </html>

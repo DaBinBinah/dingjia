@@ -20,43 +20,122 @@ const PHASE_LABELS = {
   holiday: '节假日休市',
 };
 
-/* ---------------- 新手术语通俗解释词典 (少术语、多举例) ---------------- */
+/* ---------------- 新手术语通俗解释词典 (少术语、多举例、映射指南章节) ---------------- */
 const EXPLAIN_DICT = {
-  pe: {
-    title: 'PE (市盈率 / 公司估值)',
-    desc: '市盈率 = 公司市值 ÷ 净利润。\n\n通俗理解：如果这家公司每年赚这么多钱，你按现在的价格买入，大约需要多少年能收回本金。数值越低通常代表估值相对越便宜，但也要结合行业成长性综合看待。',
+  currentPrice: {
+    title: '当前价格 (最新市价)',
+    desc: '交易所当前最新撮合成交的单价。\n\n通俗理解：在交易时间内（09:30~11:30、13:00~15:00），买卖双方实时撮合，价格每时每刻在变动，这是完全正常的。',
+    guideSec: 'secQuote',
   },
-  dividendYield: {
-    title: '股息率 (分红收益率)',
-    desc: '股息率 = 每股现金分红 ÷ 股票价格。\n\n通俗理解：如果按当前价格买入，本次分红带给你的现金收益比例。\n\n⚠️ 注意：分红除权除息后股价会相应扣减，获得分红不等于无风险额外收益。',
+  changePercent: {
+    title: '今日涨跌幅 (相比昨天)',
+    desc: '今天最新价格相对于昨天收盘价的涨跌百分比。\n\n通俗理解：A股红色代表上涨（+），绿色代表下跌（-）。如果为 0.00% 表示与昨天收盘价持平。',
+    guideSec: 'secQuote',
+  },
+  buyPrice: {
+    title: '买入价格 (低吸关注线)',
+    desc: '你自己设定的目标关注价格。\n\n通俗理解：当价格跌到或低于这个数字时，系统会自动提醒你。这绝非系统建议买入，而是你自己的计划价格。',
+    guideSec: 'secTouch',
+  },
+  sellPrice: {
+    title: '卖出价格 (止盈目标线)',
+    desc: '你自己设定的目标止盈价格。\n\n通俗理解：当价格涨到或高于这个数字时，系统会自动提醒你，提醒后由你自己决定是否操作。',
+    guideSec: 'secTouch',
+  },
+  targetTouch: {
+    title: '目标价格触达 (秒级快照)',
+    desc: '当市场行情第一次进入你设定的买入或卖出价格区域时，系统记录下该瞬间的精确秒级时间、行情快照与涨跌幅。\n\n通俗理解：即使后来价格回落，系统也完整记录它何时达标过。',
+    guideSec: 'secTouch',
+  },
+  rearmTouch: {
+    title: '重复重新触达 (离开后再次达标)',
+    desc: '如果价格达标后又离开了目标区间（如从2.00涨到2.05），系统会自动解除锁定；当价格再次进入目标区时，会生成新的独立触达记录。',
+    guideSec: 'secTouch',
+  },
+  holding: {
+    title: '持仓股数 (你实际持有的份额)',
+    desc: '你实际用资金买入并持有的股票或 ETF 数量。\n\n⚠️ 重点：监控 ≠ 持仓。监控只是你的观察清单，持仓才是你真金白银拥有的资产。',
+    guideSec: 'secPortfolio',
+  },
+  costPrice: {
+    title: '持仓成本价 (平均买入价)',
+    desc: '你买入该股票时的平均成交单价。\n\n通俗理解：用来和你现在的股价对比，计算账面上是浮盈还是浮亏。',
+    guideSec: 'secPortfolio',
   },
   marketValue: {
-    title: '当前市值 (当前总价值)',
-    desc: '当前市值 = 当前股票单价 × 你持有的股数。\n\n通俗理解：你手里持有的这些股票如果现在全部按市价卖出，能换回多少现金。',
+    title: '当前市值 (持仓总价值)',
+    desc: '当前市值 = 当前股票单价 × 你持有的股数。\n\n通俗理解：如果现在把手里持有的股票全部按市价卖出，大约能换回多少现金。',
+    guideSec: 'secPortfolio',
   },
   floatingPnL: {
     title: '浮动盈亏 (纸面盈亏)',
-    desc: '浮动盈亏 = 当前市值 - 买入总成本。\n\n通俗理解：如果现在卖出，比当初买入赚（或亏）多少钱。只要没实际卖出，这个数字就会随着每天股价波动。',
+    desc: '浮动盈亏 = 当前市值 - 买入总成本。\n\n通俗理解：只要股票还没在券商卖出，它每天都会随股价波动，不等于真正落袋的利润。',
+    guideSec: 'secPortfolio',
+  },
+  realizedProfit: {
+    title: '已实现利润 (落袋收益)',
+    desc: '只有真实在券商软件中卖出股票后，赚到的差价扣除税费后才属于真正落袋的已实现利润。',
+    guideSec: 'secPortfolio',
+  },
+  dividend: {
+    title: '上市公司分红 (现金红利)',
+    desc: '上市公司将经营利润按持股比例以现金派发给股东。\n\n⚠️ 重点：分红后股价会进行除息扣减，获得分红不等于无风险额外收益。',
+    guideSec: 'secDividend',
+  },
+  recordDate: {
+    title: '股权登记日 (最关键分红日)',
+    desc: '在股权登记日当天下午 15:00 收市时，只要你账户里持有该股票，就自动享有本次分红权益。在登记日之后卖出依然享有分红。',
+    guideSec: 'secDividend',
+  },
+  exDate: {
+    title: '除息日 (价格调整日)',
+    desc: '进行除息价格调整的交易日。当天开盘基准价会按每股分红金额等额下调，属于正常的交易规则调整。',
+    guideSec: 'secDividend',
+  },
+  dividendYield: {
+    title: '股息率 (分红收益率)',
+    desc: '股息率 = 每股现金分红 ÷ 股票价格。\n\n通俗理解：衡量分红回报率的指标，但上市公司未来分红可能变动，不等于固定利息保证。',
+    guideSec: 'secDividend',
+  },
+  etf: {
+    title: 'ETF (交易型一揽子基金)',
+    desc: 'ETF 相当于一篮子股票打包在一起的基金份额（如沪深300、半导体等），买一份相当于分散买入一整篮子资产，避免单只个股暴雷。',
+    guideSec: 'secConcept',
+  },
+  stock: {
+    title: '股票 (上市公司股份)',
+    desc: '代表持有单家上市公司的一小部分权益，收益与风险与该公司的经营发展紧密相连。',
+    guideSec: 'secConcept',
+  },
+  yearHighLow: {
+    title: '年内最高/最低价',
+    desc: '记录今年以来该股票出现过的最高价与最低价，帮助你直观判断当前价格是在山顶还是谷底。',
+    guideSec: 'secQuote',
+  },
+  pe: {
+    title: 'PE (市盈率 / 估值)',
+    desc: '市盈率 = 公司市值 ÷ 净利润。\n\n通俗理解：按当前价格买入大约需要多少年收回本金，数值越低通常估值相对越便宜。',
+    guideSec: 'secQuote',
+  },
+  breakeven: {
+    title: '理论回本价 (保本点)',
+    desc: '理论回本价 = 覆盖买入与卖出的券商佣金、印花税及过户费后的价格。股价涨到此价位卖出才真正不亏钱。',
+    guideSec: 'secPortfolio',
   },
   drawdown: {
     title: '年内回撤 (距高点下跌)',
-    desc: '指股价从今年最高点跌到当前价格的幅度。\n\n通俗理解：衡量股票从山顶跌下来多少。回撤越小说明今年走势越稳健；回撤过大时，需注意公司是否有突发风险。',
-  },
-  breakeven: {
-    title: '理论回本价 (盈亏平衡点)',
-    desc: '理论回本价 = 扣除买入与卖出的券商佣金（如万2.5/最低5元）、印花税（万5）及过户费后的保本价格。\n\n通俗理解：股价不仅要涨回你的买入价，还要多涨一点来覆盖交易税费，卖出时才真正不亏钱。',
+    desc: '指股价从今年最高点跌到当前价格的幅度。衡量股票从高处跌下来多少。',
+    guideSec: 'secQuote',
   },
   scenario: {
-    title: '情景盈亏测算 (如果股价变化)',
-    desc: '基于纯数学模型，测算当股价上涨或下跌 -30% ~ +30% 时，你的持仓市值与浮盈会变成多少。\n\n通俗理解：提前帮你看清极端行情下的账户变化，做好心理准备与风险规划，绝非预测未来走势。',
-  },
-  benchmark: {
-    title: '市场对比基准 (沪深300 / 上证指数)',
-    desc: '沪深300指数代表A股最具代表性的300只大盘蓝筹股的平均表现。\n\n通俗理解：拿你的股票和沪深300对比，能一眼看出你的股票是跑赢了大盘，还是落后于市场平均水平。',
+    title: '情景盈亏测算',
+    desc: '基于纯数学模型，测算当股价上涨或下跌时你的市值与盈亏变化，帮助你提前做好心理准备与风险规划。',
+    guideSec: 'secPortfolio',
   },
   cashSafe: {
-    title: '现金安全垫 (可用现金比例)',
-    desc: '指现金资产占你总投资资产的比例。\n\n通俗理解：账户里留有一定比例的现金就像汽车的安全气囊，大跌时不慌，有机会时有子弹可以从容分批布局。',
+    title: '现金安全垫',
+    desc: '现金资产占总投资资产的比例。留有一定现金就像安全气囊，大跌时不慌，有机会时有子弹。',
+    guideSec: 'secPortfolio',
   },
 };
 
@@ -2422,6 +2501,7 @@ function switchView(view) {
   $('#viewAlerts').hidden = view !== 'alerts';
   $('#viewDetail').hidden = view !== 'detail';
   $('#viewHoldingDetail').hidden = view !== 'holdingDetail';
+  $('#viewGuide').hidden = view !== 'guide';
 
   // 浮动按钮切换
   $('#fabAddWatch').hidden = view !== 'watches';
@@ -2430,7 +2510,7 @@ function switchView(view) {
   $('#fabImportHolding').hidden = view !== 'portfolio';
 
   $('#stats').hidden = view !== 'watches';
-  document.body.classList.toggle('detail-open', view === 'detail' || view === 'holdingDetail');
+  document.body.classList.toggle('detail-open', view === 'detail' || view === 'holdingDetail' || view === 'guide');
 
   if (view === 'watches') {
     $('#appTitle').textContent = '盯价';
@@ -2444,6 +2524,8 @@ function switchView(view) {
   } else if (view === 'alerts') {
     $('#appTitle').textContent = '提醒记录';
     loadAlerts();
+  } else if (view === 'guide') {
+    $('#appTitle').textContent = '新手指南';
   }
 }
 
@@ -2600,12 +2682,79 @@ async function confirmImportHoldings() {
 /* ---------------- V4 弹窗交互：日记、计划、名词解释、偏好设置 ---------------- */
 
 // 1. 名词解释弹窗 (ⓘ)
+let currentExplainSec = 'secQuick';
 function openExplain(key) {
   const item = EXPLAIN_DICT[key];
   if (!item) return;
+  currentExplainSec = item.guideSec || 'secQuick';
   $('#explainTitle').textContent = `💡 ${item.title}`;
   $('#explainBody').innerHTML = `<p>${esc(item.desc).replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')}</p>`;
   $('#explainModal').hidden = false;
+}
+
+/* ---------------- 📖 盯价 · 新手指南 控制器 ---------------- */
+const guideState = {
+  readSet: new Set(),
+};
+
+function initGuideProgress() {
+  try {
+    const saved = localStorage.getItem('dingjia_guide_read_v1');
+    if (saved) {
+      const arr = JSON.parse(saved);
+      if (Array.isArray(arr)) guideState.readSet = new Set(arr);
+    }
+  } catch (e) {}
+  updateGuideBadge();
+}
+
+function markGuideSecRead(secIndex) {
+  if (secIndex == null) return;
+  guideState.readSet.add(Number(secIndex));
+  try {
+    localStorage.setItem('dingjia_guide_read_v1', JSON.stringify([...guideState.readSet]));
+  } catch (e) {}
+  updateGuideBadge();
+}
+
+function updateGuideBadge() {
+  const count = guideState.readSet.size;
+  const badge = $('#guideProgressBadge');
+  if (badge) badge.textContent = `已了解 ${count}/8 节`;
+}
+
+function openGuide(sectionId) {
+  switchView('guide');
+  initGuideProgress();
+  const targetId = sectionId || 'secQuick';
+  setTimeout(() => {
+    const el = document.getElementById(targetId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const secIndex = el.dataset.guideSec;
+      if (secIndex != null) markGuideSecRead(secIndex);
+    }
+    document.querySelectorAll('.guide-pill').forEach((btn) => {
+      btn.classList.toggle('on', btn.dataset.sec === targetId);
+    });
+  }, 60);
+}
+
+function initGuideSearch() {
+  const input = $('#guideSearchInput');
+  if (!input) return;
+  input.addEventListener('input', () => {
+    const q = input.value.trim().toLowerCase();
+    const sections = document.querySelectorAll('.guide-section');
+    sections.forEach((sec) => {
+      if (!q) {
+        sec.hidden = false;
+        return;
+      }
+      const text = sec.textContent.toLowerCase();
+      sec.hidden = !text.includes(q);
+    });
+  });
 }
 
 // 2. 投资日记弹窗
@@ -2810,6 +2959,38 @@ function bindEvents() {
   $('#refreshBtn').addEventListener('click', manualRefresh);
   $('#settingsBtn').addEventListener('click', openSettingsModal);
   $('#btnExplainToday').addEventListener('click', showAiSummary);
+
+  // 📖 新手指南事件绑定
+  const homeGb = $('#homeGuideBanner');
+  if (homeGb) homeGb.addEventListener('click', () => openGuide('secQuick'));
+  const settingGe = $('#settingGuideEntry');
+  if (settingGe) {
+    settingGe.addEventListener('click', () => {
+      $('#settingsModal').hidden = true;
+      openGuide('secQuick');
+    });
+  }
+  const guideBack = $('#guideBackBtn');
+  if (guideBack) guideBack.addEventListener('click', () => switchView('watches'));
+  const guideHome = $('#btnGuideGoHome');
+  if (guideHome) guideHome.addEventListener('click', () => switchView('watches'));
+  const guideFinish = $('#btnGuideFinish');
+  if (guideFinish) guideFinish.addEventListener('click', () => switchView('watches'));
+  const guideJumpQuick = $('#btnGuideJumpQuick');
+  if (guideJumpQuick) guideJumpQuick.addEventListener('click', () => openGuide('secQuick'));
+
+  document.querySelectorAll('.guide-pill').forEach((btn) => {
+    btn.addEventListener('click', () => openGuide(btn.dataset.sec));
+  });
+
+  const explainGoGuide = $('#btnExplainGoGuide');
+  if (explainGoGuide) {
+    explainGoGuide.addEventListener('click', () => {
+      $('#explainModal').hidden = true;
+      openGuide(currentExplainSec);
+    });
+  }
+  initGuideSearch();
 
   // 名词解释点击
   document.addEventListener('click', (e) => {
