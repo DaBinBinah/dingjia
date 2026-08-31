@@ -2250,35 +2250,60 @@ function renderAlerts() {
   }
   empty.hidden = true;
   more.hidden = !state.alertHasMore;
+
   list.innerHTML = state.alerts
     .map((a) => {
       const isDiv = typeof a.alertType === 'string' && a.alertType.startsWith('DIVIDEND_');
       const isBuy = a.alertType === 'buy';
-      const badgeIcon = isDiv ? '💰' : isBuy ? '🟢' : '🔴';
-      const badgeCls = isDiv ? 'div' : isBuy ? 'buy' : 'sell';
+      const isSell = a.alertType === 'sell';
 
-      let label = '价格提醒';
-      let sub = '';
+      let typeBadge = '';
+      let detailsHtml = '';
+
       if (isDiv) {
-        if (a.alertType === 'DIVIDEND_TODAY') label = '今日股权登记日';
-        else if (a.alertType === 'DIVIDEND_1D') label = '明日股权登记日';
-        else if (a.alertType === 'DIVIDEND_3D') label = '分红临近(3交易日)';
-        else if (a.alertType === 'DIVIDEND_5D') label = '分红提醒(5交易日)';
-        else label = '分红提醒';
-        sub = `${esc(a.code)} · 每股分红 ¥${a.dividendPerShare != null ? a.dividendPerShare.toFixed(2) : '—'} · 登记日 ${esc(a.recordDate || '—')}`;
+        let divTitle = '💰 分红提醒';
+        if (a.alertType === 'DIVIDEND_TODAY') divTitle = '🔴 今日股权登记';
+        else if (a.alertType === 'DIVIDEND_1D') divTitle = '🟡 明日股权登记';
+        else if (a.alertType === 'DIVIDEND_3D') divTitle = '💰 3日内股权登记';
+        else if (a.alertType === 'DIVIDEND_5D') divTitle = '💰 5日内股权登记';
+        else if (a.alertType === 'DIVIDEND_10D') divTitle = '💰 10日内分红';
+
+        typeBadge = `<span class="alert-chip div">${divTitle}</span>`;
+        const unit = a.type === 'etf' ? '/份' : '/股';
+        detailsHtml = `
+          <div class="alert-grid">
+            <div class="ag-col"><span>每${a.type === 'etf' ? '份' : '股'}分红</span><b>¥${a.dividendPerShare != null ? a.dividendPerShare.toFixed(3) : '—'}${unit}</b></div>
+            <div class="ag-col"><span>股权登记日</span><b>${esc(a.recordDate || '—')}</b></div>
+            <div class="ag-col"><span>除息日</span><b>${esc(a.exDividendDate || '—')}</b></div>
+          </div>`;
       } else {
-        label = isBuy ? '买入提醒' : '卖出提醒';
-        sub = `${esc(a.code)} · 现价 ¥${fmtPrice(a.currentPrice, a.type) == null ? '—' : fmtPrice(a.currentPrice, a.type)} · 阈值 ¥${fmtPrice(a.triggerPrice, a.type) == null ? '—' : fmtPrice(a.triggerPrice, a.type)}`;
+        const chipCls = isBuy ? 'buy' : 'sell';
+        const chipText = isBuy ? '🟢 买入机会已达' : '🔴 卖出机会已达';
+        typeBadge = `<span class="alert-chip ${chipCls}">${chipText}</span>`;
+        const actionText = isBuy ? '现价 ≤ 买入目标' : '现价 ≥ 卖出目标';
+        const priceCls = isSell ? 'text-up' : isBuy ? 'text-down' : '';
+
+        detailsHtml = `
+          <div class="alert-grid">
+            <div class="ag-col"><span>触发时现价</span><b class="${priceCls}">¥${fmtPrice(a.currentPrice, a.type) || '—'}</b></div>
+            <div class="ag-col"><span>目标阈值</span><b>¥${fmtPrice(a.triggerPrice, a.type) || '—'}</b></div>
+            <div class="ag-col"><span>达成条件</span><b class="cond">${actionText}</b></div>
+          </div>`;
       }
 
       return `
-        <div class="alert-item">
-          <div class="alert-badge ${badgeCls}">${badgeIcon}</div>
-          <div class="alert-main">
-            <div class="alert-title">${esc(a.name)}<span class="tag ${badgeCls}">${label}</span></div>
-            <div class="alert-sub">${sub}</div>
+        <div class="alert-card ${isDiv ? 'div' : isBuy ? 'buy' : 'sell'}">
+          <div class="ac-head">
+            <div class="ac-type">${typeBadge}</div>
+            <div class="ac-time">${fmtFullDateTime(a.createdAt)}</div>
           </div>
-          <div class="alert-time">${esc(fmtTime(a.createdAt, true))}</div>
+          <div class="ac-body">
+            <div class="ac-name-row">
+              <span class="ac-name">${esc(a.name || a.code)}</span>
+              <span class="ac-code">${esc(a.code)} · ${a.type === 'etf' ? 'ETF' : '股票'}</span>
+            </div>
+            ${detailsHtml}
+          </div>
         </div>`;
     })
     .join('');
