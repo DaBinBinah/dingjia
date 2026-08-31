@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f5f5f7">
 <title>盯价 - 你定价格，我来盯。</title>
-<link rel="stylesheet" href="css/style.css?v=20260831quote5">
+<link rel="stylesheet" href="css/style.css?v=20260831fund6">
 </head>
 <body>
 
@@ -700,6 +700,57 @@
         <p>⚠️ 价格触达表示监控系统检测到行情达到设定的目标价格，不代表实际成交或投资建议；</p>
         <p>💡 收到提醒时当前价格可能已发生波动，触达后表现为相对于触达价格的即时变动测算。</p>
       </div>
+    </section>
+
+    <!-- 🏢 公司基本面（PE、PB、ROE 估值与盈利能力） -->
+    <section class="detail-section" id="detailFundamentalsSection" hidden>
+      <div class="section-title-bar">
+        <h3>🏢 公司基本面</h3>
+        <span class="sec-badge" id="fundMetricBadge">估值与盈利</span>
+      </div>
+
+      <div class="fundamentals-grid" id="fundamentalsGrid">
+        <!-- PE 卡片 -->
+        <div class="fund-card">
+          <div class="fund-card-head">
+            <span class="fund-lab">现在贵不贵</span>
+            <button type="button" class="fund-info-btn" data-explain="pe" aria-label="市盈率解释">ⓘ</button>
+          </div>
+          <div class="fund-val-row">
+            <span class="fund-name">PE (TTM)</span>
+            <b class="fund-val" id="fundPeVal">—</b>
+          </div>
+          <p class="fund-hint" id="fundPeHint">市场估值倍数</p>
+        </div>
+
+        <!-- PB 卡片 -->
+        <div class="fund-card">
+          <div class="fund-card-head">
+            <span class="fund-lab">股价比公司家底高多少</span>
+            <button type="button" class="fund-info-btn" data-explain="pb" aria-label="市净率解释">ⓘ</button>
+          </div>
+          <div class="fund-val-row">
+            <span class="fund-name">PB (MRQ)</span>
+            <b class="fund-val" id="fundPbVal">—</b>
+          </div>
+          <p class="fund-hint" id="fundPbHint">每股净资产倍数</p>
+        </div>
+
+        <!-- ROE 卡片 -->
+        <div class="fund-card">
+          <div class="fund-card-head">
+            <span class="fund-lab">公司赚钱能力</span>
+            <button type="button" class="fund-info-btn" data-explain="roe" aria-label="净资产收益率解释">ⓘ</button>
+          </div>
+          <div class="fund-val-row">
+            <span class="fund-name" id="fundRoeName">ROE</span>
+            <b class="fund-val" id="fundRoeVal">—</b>
+          </div>
+          <p class="fund-hint" id="fundRoeHint">净资产收益率</p>
+        </div>
+      </div>
+
+      <p class="hist-note">基本面指标仅供估值与盈利认知参考，不构成任何买入/卖出投资建议。投资需结合行业前景与风险综合判断。</p>
     </section>
 
     <!-- 历史行情与统计专区 -->
@@ -1707,7 +1758,7 @@
   <div id="toast" class="toast" hidden></div>
 </div>
 
-<script src="vendor/cloudbase.js?v=20260831quote5"></script>
-<script src="js/app.js?v=20260831quote5"></script>
+<script src="vendor/cloudbase.js?v=20260831fund6"></script>
+<script src="js/app.js?v=20260831fund6"></script>
 </body>
 </html>

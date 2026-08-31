@@ -224,6 +224,16 @@
       "runtime": "Nodejs18.15",
       "handler": "index.main",
       "installDependency": true
+    },
+    {
+      "name": "ths-get-fundamentals",
+      "timeout": 15,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "THS_API_KEY": "REDACTED_THS_API_KEY"
+      }
     }
   ]
 }

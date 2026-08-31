@@ -113,9 +113,19 @@ const EXPLAIN_DICT = {
     guideSec: 'secQuote',
   },
   pe: {
-    title: 'PE (市盈率 / 估值)',
-    desc: '市盈率 = 公司市值 ÷ 净利润。\n\n通俗理解：按当前价格买入大约需要多少年收回本金，数值越低通常估值相对越便宜。',
-    guideSec: 'secQuote',
+    title: 'PE (市盈率 / 现在贵不贵)',
+    desc: '简单理解：公司一年赚的钱，市场目前给这家公司多少倍的估值。\n\n⚠️ 特别注意：PE不等于实际投资回本时间，因为公司盈利和股价都会变化。如果公司当前盈利为负，则PE不适用。',
+    guideSec: 'secConcept',
+  },
+  pb: {
+    title: 'PB (市净率 / 股价比公司家底高多少)',
+    desc: '简单理解：现在的股价相当于公司每股净资产的多少倍。反映当前市值相对公司账面净资产的溢价程度。',
+    guideSec: 'secConcept',
+  },
+  roe: {
+    title: 'ROE (净资产收益率 / 公司赚钱能力)',
+    desc: '简单理解：公司用股东的钱赚钱的能力。\n\n⚠️ 特别注意：ROE不是投资者实际获得的收益率。',
+    guideSec: 'secConcept',
   },
   breakeven: {
     title: '理论回本价 (保本点)',
@@ -1661,6 +1671,7 @@ function openDetail(watch) {
   renderDetail();
   renderHistContent();
   loadDetailDividendData();
+  loadDetailFundamentals(watch);
 }
 
 function renderDetail() {
@@ -1746,6 +1757,98 @@ function renderDetailTarget(w) {
 }
 
 /* ---------------- 详情页分红与历史行情 ---------------- */
+let detailFundCache = {}; // ckey -> fundamentals
+
+async function loadDetailFundamentals(w) {
+  const fundSec = $('#detailFundamentalsSection');
+  if (!w || w.type === 'etf') {
+    if (fundSec) fundSec.hidden = true;
+    return;
+  }
+  if (fundSec) fundSec.hidden = false;
+
+  // 占位初始化
+  $('#fundPeVal').textContent = '—';
+  $('#fundPeVal').className = 'fund-val';
+  $('#fundPeHint').textContent = '正在获取估值…';
+
+  $('#fundPbVal').textContent = '—';
+  $('#fundPbHint').textContent = '正在获取市净率…';
+
+  $('#fundRoeVal').textContent = '—';
+  $('#fundRoeName').textContent = 'ROE';
+  $('#fundRoeHint').textContent = '正在获取报告期…';
+
+  const ckey = `fund:${w.code}`;
+  if (detailFundCache[ckey]) {
+    renderFundamentalsData(detailFundCache[ckey]);
+    return;
+  }
+
+  try {
+    const r = await call('ths-get-fundamentals', {
+      type: 'stock',
+      code: w.code,
+      thsCode: w.thsCode,
+    });
+    if (r && r.ok && r.fundamentals) {
+      detailFundCache[ckey] = r.fundamentals;
+      renderFundamentalsData(r.fundamentals);
+    } else {
+      $('#fundPeHint').textContent = '暂无估值数据';
+      $('#fundPbHint').textContent = '暂无市净率数据';
+      $('#fundRoeHint').textContent = '暂无报告期数据';
+    }
+  } catch (e) {
+    $('#fundPeHint').textContent = '暂无估值数据';
+    $('#fundPbHint').textContent = '暂无市净率数据';
+    $('#fundRoeHint').textContent = '暂无报告期数据';
+  }
+}
+
+function renderFundamentalsData(fund) {
+  if (!fund) return;
+  const { pe, pb, roe } = fund;
+
+  // 1. PE (TTM)
+  const peEl = $('#fundPeVal');
+  const peHintEl = $('#fundPeHint');
+  if (pe && pe.text) {
+    peEl.textContent = pe.text;
+    peEl.className = pe.isLoss ? 'fund-val loss' : 'fund-val';
+    peHintEl.textContent = pe.hint || '市场估值倍数';
+  } else {
+    peEl.textContent = '—';
+    peEl.className = 'fund-val';
+    peHintEl.textContent = '暂无估值数据';
+  }
+
+  // 2. PB (MRQ)
+  const pbEl = $('#fundPbVal');
+  const pbHintEl = $('#fundPbHint');
+  if (pb && pb.text) {
+    pbEl.textContent = pb.text;
+    pbHintEl.textContent = pb.hint || '每股净资产倍数';
+  } else {
+    pbEl.textContent = '—';
+    pbHintEl.textContent = '暂无市净率数据';
+  }
+
+  // 3. ROE
+  const roeEl = $('#fundRoeVal');
+  const roeNameEl = $('#fundRoeName');
+  const roeHintEl = $('#fundRoeHint');
+  if (roe && roe.text) {
+    roeEl.textContent = roe.text;
+    roeNameEl.textContent = roe.metric || 'ROE';
+    roeHintEl.textContent = roe.hint || '净资产收益率';
+  } else {
+    roeEl.textContent = '—';
+    roeNameEl.textContent = 'ROE';
+    roeHintEl.textContent = '暂无报告期数据';
+  }
+}
+
 async function loadDetailDividendData() {
   const w = findDetailWatch();
   if (!w) return;
