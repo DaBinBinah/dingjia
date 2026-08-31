@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f5f5f7">
+<title>我的投资监控</title>
+<link rel="stylesheet" href="css/style.css?v=20260831f">
+</head>
+<body>
+
+<div id="boot" class="boot"><div class="boot-spinner"></div><p>正在连接云环境…</p></div>
+
+<div id="root" class="root" hidden>
+
+  <!-- 顶部 -->
+  <header class="app-header">
+    <div class="header-text">
+      <h1>我的投资监控</h1>
+      <p class="sub" id="phaseLine">—</p>
+    </div>
+    <button id="refreshBtn" class="icon-btn" aria-label="刷新行情">↻</button>
+  </header>
+
+  <!-- 统计 -->
+  <section class="stats" id="stats" hidden>
+    <div class="stat"><b id="statMonitoring">0</b><span>监控中</span></div>
+    <div class="stat"><b id="statAlerts">0</b><span>今日提醒</span></div>
+    <div class="stat stat-buy"><b id="statBuy">0</b><span>买入机会</span></div>
+    <div class="stat stat-sell"><b id="statSell">0</b><span>卖出机会</span></div>
+  </section>
+
+  <!-- 视图：监控列表 -->
+  <main id="viewWatches">
+    <div class="seg seg-block" id="watchFilter">
+      <button data-filter="all" class="on">全部</button>
+      <button data-filter="active">进行中</button>
+      <button data-filter="done">已达成 🏁</button>
+    </div>
+    <div id="watchList" class="cards"></div>
+    <div id="emptyState" class="empty" hidden>
+      <div class="empty-icon">📈</div>
+      <p class="empty-title" id="emptyTitle">还没有监控标的</p>
+      <p class="empty-sub" id="emptySub">添加股票或 ETF，设置价格线，<br>跌破 / 突破时自动提醒你</p>
+      <button class="btn btn-primary btn-lg" data-open-add>＋ 添加监控</button>
+      <p class="empty-alt"><button class="link-btn" data-open-import>或批量导入 ⤴︎</button></p>
+    </div>
+  </main>
+
+  <!-- 视图：标的详情（无 K 线） -->
+  <main id="viewDetail" hidden>
+    <div class="detail-head">
+      <button id="detailBack" class="icon-btn" aria-label="返回">←</button>
+      <div class="detail-title-wrap">
+        <div class="detail-name" id="detailName">—</div>
+        <div class="detail-sub" id="detailSub">—</div>
+      </div>
+      <span class="detail-chip" id="detailChip">—</span>
+    </div>
+    <section class="detail-quote">
+      <div class="detail-price-row">
+        <span class="detail-price" id="detailPrice">—</span>
+        <span class="detail-change" id="detailChange">—</span>
+      </div>
+      <div class="detail-banner" id="detailBanner" hidden></div>
+    </section>
+    <section class="metric-row">
+      <div class="metric"><b id="metricY2025">—</b><span>2025年至今</span></div>
+      <div class="metric"><b id="metricY2026">—</b><span>2026年至今</span></div>
+      <div class="metric"><b id="metricLast">—</b><span>当前价格</span></div>
+    </section>
+    <section class="dist-row" id="distRow"></section>
+    <section class="target-summary" id="detailTarget" hidden></section>
+    <section class="hist">
+      <div class="seg seg-block" id="histPeriod">
+        <button data-period="day" class="on">日</button>
+        <button data-period="week">周</button>
+        <button data-period="month">月</button>
+        <button data-period="quarter">季度</button>
+        <button data-period="year">年</button>
+      </div>
+      <div class="seg seg-block wrap" id="histRange">
+        <button data-range="1m">近1月</button>
+        <button data-range="3m">近3月</button>
+        <button data-range="6m">近6月</button>
+        <button data-range="26ytd">26至今</button>
+        <button data-range="25ytd">25至今</button>
+        <button data-range="all" class="on">全部</button>
+        <button data-range="custom">自定义</button>
+      </div>
+      <div class="hist-custom" id="histCustom" hidden>
+        <input type="date" id="histFrom">
+        <span>至</span>
+        <input type="date" id="histTo">
+        <button class="btn btn-sm" id="histApply">应用</button>
+      </div>
+      <div class="hist-table-wrap">
+        <table class="hist-table">
+          <thead><tr><th>日期</th><th>收盘价</th><th>涨跌</th><th>涨跌幅</th></tr></thead>
+          <tbody id="histBody"></tbody>
+        </table>
+      </div>
+      <p class="hist-empty" id="histEmpty" hidden>该区间暂无数据</p>
+      <p class="hist-note">日线为前复权收盘价，仅展示历史行情</p>
+    </section>
+    <div class="detail-actions">
+      <button class="btn btn-block" id="detailEdit">✏️ 编辑监控</button>
+      <button class="btn btn-block" id="detailToggle">⏸ 暂停监控</button>
+      <button class="btn btn-block btn-outline" id="detailDelete">🗑 删除监控</button>
+    </div>
+    <div class="detail-actions-note">价格仅监控提醒，不提供任何交易功能</div>
+  </main>
+
+  <!-- 视图：提醒记录 -->
+  <main id="viewAlerts" hidden>
+    <div class="seg seg-block" id="alertFilter">
+      <button data-filter="all" class="on">全部</button>
+      <button data-filter="buy">买入提醒</button>
+      <button data-filter="sell">卖出提醒</button>
+    </div>
+    <div id="alertList" class="alert-list"></div>
+    <div id="alertEmpty" class="empty" hidden>
+      <div class="empty-icon">🔔</div>
+      <p class="empty-title">暂无提醒记录</p>
+      <p class="empty-sub">当价格穿越你设置的价格线，<br>提醒会出现在这里</p>
+    </div>
+    <button id="loadMoreBtn" class="btn btn-block" hidden>加载更多</button>
+  </main>
+
+  <!-- 底部状态栏 -->
+  <footer class="status-bar" id="statusBar">行情状态：—</footer>
+
+  <!-- 底部导航 -->
+  <nav class="tabbar">
+    <button class="tab on" data-view="watches"><span class="tab-icon">📊</span><span>监控</span></button>
+    <button class="tab" data-view="alerts"><span class="tab-icon">🔔</span><span>提醒记录</span></button>
+  </nav>
+
+  <!-- 添加浮动按钮 -->
+  <button class="fab" data-open-add aria-label="添加监控"><span class="fab-plus">＋</span><span class="fab-text">添加监控</span></button>
+  <!-- 批量导入浮动按钮 -->
+  <button class="fab fab-secondary" data-open-import aria-label="批量导入"><span class="fab-plus">⇪</span><span class="fab-text">批量导入</span></button>
+
+  <!-- 添加/编辑弹窗 -->
+  <div class="modal" id="formModal" hidden>
+    <div class="sheet">
+      <div class="sheet-head">
+        <h2 id="formTitle">添加监控</h2>
+        <button class="icon-btn" data-close aria-label="关闭">✕</button>
+      </div>
+
+      <div class="field">
+        <label>类型</label>
+        <div class="seg" id="typeSeg">
+          <button type="button" data-type="stock" class="on">股票</button>
+          <button type="button" data-type="etf">ETF</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label id="codeLabel">股票代码</label>
+        <input id="fCode" inputmode="numeric" maxlength="6" placeholder="6 位数字，如 601137" autocomplete="off">
+        <p class="hint" id="pricePreview"></p>
+      </div>
+
+      <div class="field">
+        <label id="nameLabel">股票名称</label>
+        <input id="fName" maxlength="30" placeholder="如 博威合金" autocomplete="off">
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>买入价格</label>
+          <input id="fBuy" inputmode="decimal" placeholder="如 20.00" autocomplete="off">
+          <p class="hint">现价 ≤ 此价时提醒，可留空</p>
+        </div>
+        <div class="field">
+          <label>卖出价格</label>
+          <input id="fSell" inputmode="decimal" placeholder="如 28.00" autocomplete="off">
+          <p class="hint">现价 ≥ 此价时提醒，可留空</p>
+        </div>
+      </div>
+
+      <div class="field target-box" id="targetBox">
+        <p class="target-title">🎯 目标价 × 折扣（可选）<span class="hint" id="targetHint"></span></p>
+        <div class="row3">
+          <div class="field">
+            <label for="fTarget">目标价</label>
+            <input id="fTarget" inputmode="decimal" placeholder="如 20.00" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="fBuyD">买入折扣 %</label>
+            <input id="fBuyD" inputmode="decimal" placeholder="如 90" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="fSellD">卖出折扣 %</label>
+            <input id="fSellD" inputmode="decimal" placeholder="如 105" autocomplete="off">
+          </div>
+        </div>
+        <p class="hint">输入目标价与折扣自动换算价格行（例：20 × 90% → 买入 18.00；同比例卖出）；直接修改上方价格行可手动调整</p>
+      </div>
+
+      <div class="field switch-row">
+        <label for="fEnabled">开启监控</label>
+        <label class="switch"><input type="checkbox" id="fEnabled" checked><span class="slider"></span></label>
+      </div>
+
+      <p class="form-error" id="formError" hidden></p>
+
+      <div class="sheet-actions">
+        <button class="btn btn-danger" id="deleteBtn" hidden>删除</button>
+        <button class="btn btn-primary" id="saveBtn">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 二次确认弹窗 -->
+  <div class="modal" id="confirmModal" hidden>
+    <div class="sheet sheet-alert">
+      <h2 id="confirmTitle">确认删除</h2>
+      <p class="confirm-text" id="confirmText"></p>
+      <div class="sheet-actions sheet-actions-center">
+        <button class="btn" data-close>取消</button>
+        <button class="btn btn-danger" id="confirmOk">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 访问口令弹窗 -->
+  <div class="modal" id="codeModal" hidden>
+    <div class="sheet sheet-alert">
+      <h2>访问口令</h2>
+      <p class="confirm-text">此站点已开启访问口令保护，请输入后继续。</p>
+      <div class="field">
+        <input id="fAccessCode" type="password" placeholder="访问口令" autocomplete="off">
+      </div>
+      <p class="form-error" id="codeError" hidden></p>
+      <div class="sheet-actions sheet-actions-center">
+        <button class="btn btn-primary" id="codeOk">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 批量导入弹窗 -->
+  <div class="modal" id="importModal" hidden>
+    <div class="sheet imp-sheet">
+      <div class="sheet-head">
+        <h2 id="impTitle">批量导入</h2>
+        <button class="icon-btn" data-close-import aria-label="关闭">✕</button>
+      </div>
+      <p class="imp-sub">一次导入多个股票 / ETF，快速建立监控列表</p>
+
+      <!-- 第 1 步：选择来源 -->
+      <div id="impStep1">
+        <button class="btn btn-block" id="impTemplate">⬇︎ 下载导入模板（CSV）</button>
+        <div class="dropzone" id="impDrop">
+          <input type="file" id="impFile" accept=".csv,text/csv,application/vnd.ms-excel" hidden>
+          <p class="dz-main">将 CSV 文件拖到这里，或点击选择文件</p>
+          <p class="dz-sub">支持 UTF-8 / 带 BOM 的 CSV；Excel 请先「另存为 CSV UTF-8」</p>
+        </div>
+        <div class="imp-divider"><span>或复制粘贴导入</span></div>
+        <textarea id="impPaste" rows="6" spellcheck="false" placeholder="类型,代码,名称,买入价格,卖出价格,开启监控&#10;股票,601137,博威合金,18,21,是&#10;ETF,510300,沪深300ETF,3.8,4.2,是"></textarea>
+        <p class="hint" id="impHint"></p>
+        <button class="btn btn-primary btn-block" id="impParse">解析数据</button>
+      </div>
+
+      <!-- 第 2 步：导入预览（确认前绝不入库） -->
+      <div id="impStep2" hidden>
+        <div class="imp-stats" id="impStats"></div>
+        <div class="field">
+          <label>数据库重复数据处理</label>
+          <div class="seg" id="impDupStrategy">
+            <button type="button" data-v="skip" class="on">跳过重复</button>
+            <button type="button" data-v="update">更新已有记录</button>
+            <button type="button" data-v="overwrite">全部覆盖</button>
+          </div>
+        </div>
+        <div class="field" id="impFileDupField" hidden>
+          <label>文件内部重复代码</label>
+          <div class="seg" id="impFileDup">
+            <button type="button" data-v="last" class="on">使用最后一条</button>
+            <button type="button" data-v="first">保留第一条</button>
+          </div>
+        </div>
+        <div class="imp-table-wrap">
+          <table class="imp-table">
+            <thead><tr><th>状态</th><th>类型</th><th>代码</th><th>名称</th><th>买入价</th><th>卖出价</th><th>监控</th><th>说明</th></tr></thead>
+            <tbody id="impTbody"></tbody>
+          </table>
+        </div>
+        <div class="sheet-actions">
+          <button class="btn" id="impBack">重新选择</button>
+          <button class="btn btn-primary" id="impConfirm">确认导入</button>
+        </div>
+      </div>
+
+      <!-- 第 3 步：导入结果 -->
+      <div id="impStep3" hidden>
+        <div class="imp-result" id="impResult"></div>
+        <button class="btn btn-block" id="impErrors" hidden>⬇︎ 下载错误记录</button>
+        <button class="btn btn-primary btn-block" id="impDone">查看监控</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+</div>
+
+<script src="vendor/cloudbase.js?v=20260831f"></script>
+<script src="js/app.js?v=20260831f"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+
+# 依赖
+node_modules/
+
+# 第三方技能包与工具目录（非项目源码）
+.agents/
+skills-lock.json
+.zcode/
+
+# 环境变量与本地配置
+.env
+.env.local
+.env.*.local
+
+# 日志
+*.log
+npm-debug.log*
+
+# WorkBuddy / AI 工具工作数据（工具产物，非项目源码）
+.workbuddy-ai/

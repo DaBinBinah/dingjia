@@ -1,0 +1,568 @@
+/* 我的投资监控 —— Apple 风格 / 手机优先 */
+:root {
+  --bg: #f5f5f7;
+  --card: #ffffff;
+  --text: #1d1d1f;
+  --text-2: #6e6e73;
+  --text-3: #aeaeb2;
+  --line: rgba(0, 0, 0, 0.06);
+  --blue: #007aff;
+  --up: #fa5151;      /* A股惯例：红涨 */
+  --down: #07c160;    /* 绿跌 */
+  --buy: #07c160;     /* 买入机会（低价侧） */
+  --sell: #fa5151;    /* 卖出机会（高价侧） */
+  --warn: #ff9f0a;
+  --radius: 18px;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 8px 24px rgba(0, 0, 0, 0.04);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.45;
+}
+button { font-family: inherit; border: none; background: none; cursor: pointer; color: inherit; }
+input { font-family: inherit; }
+
+.root { max-width: 560px; margin: 0 auto; padding: 0 16px calc(150px + env(safe-area-inset-bottom)); }
+[hidden] { display: none !important; }
+
+/* ---------- 启动页 ---------- */
+.boot {
+  position: fixed; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 14px;
+  color: var(--text-2); background: var(--bg); z-index: 50;
+}
+.boot-spinner {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 3px solid var(--line); border-top-color: var(--blue);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- 顶部 ---------- */
+.app-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: calc(14px + env(safe-area-inset-top)) 0 6px;
+}
+.app-header h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.4px; }
+.app-header .sub { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+.icon-btn {
+  width: 42px; height: 42px; min-width: 42px; border-radius: 50%;
+  background: var(--card); box-shadow: var(--shadow);
+  font-size: 19px; color: var(--blue);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.2s;
+}
+.icon-btn:active { transform: scale(0.92); }
+.icon-btn.spinning { animation: spin 0.9s linear infinite; }
+
+/* ---------- 统计 ---------- */
+.stats {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  margin: 12px 0 4px;
+}
+.stat {
+  background: var(--card); border-radius: 14px; box-shadow: var(--shadow);
+  padding: 12px 4px 10px; text-align: center;
+}
+.stat b { display: block; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat span { display: block; font-size: 11.5px; color: var(--text-2); margin-top: 2px; }
+.stat-buy b { color: var(--buy); }
+.stat-sell b { color: var(--sell); }
+
+/* ---------- 监控卡片 ---------- */
+.cards { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+.card {
+  position: relative;
+  background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 16px 16px 14px;
+  transition: box-shadow 0.25s;
+}
+.card.triggered-buy { box-shadow: 0 0 0 2px var(--buy) inset, var(--shadow); }
+.card.triggered-sell { box-shadow: 0 0 0 2px var(--sell) inset, var(--shadow); }
+.card.paused { opacity: 0.62; }
+.card.done { box-shadow: 0 0 0 2px rgba(88, 86, 214, 0.45) inset, var(--shadow); }
+.card.done .card-price { color: var(--text-2); }
+
+.card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.card-name { font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 7px; min-width: 0; }
+.card-name .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip {
+  flex: none; font-size: 11px; font-weight: 600;
+  padding: 3px 9px; border-radius: 999px;
+}
+.chip-on { background: rgba(0, 122, 255, 0.1); color: var(--blue); }
+.chip-off { background: rgba(0, 0, 0, 0.05); color: var(--text-2); }
+.chip-buy { background: rgba(7, 193, 96, 0.12); color: var(--buy); }
+.chip-sell { background: rgba(250, 81, 81, 0.12); color: var(--sell); }
+.chip-warn { background: rgba(255, 159, 10, 0.14); color: var(--warn); }
+.chip-done { background: rgba(88, 86, 214, 0.12); color: #5856d6; }
+
+.card-code { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+
+.card-price-row { display: flex; align-items: baseline; gap: 10px; margin-top: 8px; }
+.card-price {
+  font-size: 34px; font-weight: 700; letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+}
+.card-price.na { font-size: 22px; color: var(--text-3); font-weight: 500; }
+.card-change { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.up { color: var(--up); }
+.down { color: var(--down); }
+.flat { color: var(--text-2); }
+
+.lines { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.line {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 14.5px; font-variant-numeric: tabular-nums;
+}
+.line .lab { color: var(--text-2); }
+.line .lab b { color: var(--text); font-weight: 600; }
+.line .st { font-weight: 600; }
+.st-ok-buy { color: var(--buy); }
+.st-ok-sell { color: var(--sell); }
+.st-wait { color: var(--text-3); font-weight: 500; }
+
+.card-err {
+  margin-top: 8px; font-size: 12.5px; color: var(--warn);
+  display: flex; align-items: center; gap: 4px;
+}
+.card-time { margin-top: 8px; font-size: 11.5px; color: var(--text-3); }
+
+/* ---------- 空状态 ---------- */
+.empty { text-align: center; padding: 54px 20px 30px; }
+.empty-icon { font-size: 44px; }
+.empty-title { font-size: 19px; font-weight: 600; margin-top: 12px; }
+.empty-sub { font-size: 14px; color: var(--text-2); margin-top: 6px; line-height: 1.6; }
+.empty .btn { margin-top: 20px; }
+
+/* ---------- 提醒记录 ---------- */
+.seg {
+  display: flex; background: rgba(0, 0, 0, 0.05); border-radius: 12px; padding: 3px;
+  gap: 3px;
+}
+.seg-block { margin: 14px 0 4px; }
+.seg button {
+  flex: 1; padding: 8px 4px; border-radius: 10px; font-size: 14px; font-weight: 500;
+  color: var(--text-2); transition: all 0.15s;
+}
+.seg button.on { background: var(--card); color: var(--text); font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.seg button:active { transform: scale(0.97); }
+
+.alert-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.alert-item {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--card); border-radius: 16px; box-shadow: var(--shadow);
+  padding: 14px;
+}
+.alert-badge {
+  width: 40px; height: 40px; min-width: 40px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center; font-size: 19px;
+}
+.alert-badge.buy { background: rgba(7, 193, 96, 0.12); }
+.alert-badge.sell { background: rgba(250, 81, 81, 0.12); }
+.alert-main { flex: 1; min-width: 0; }
+.alert-title { font-size: 15.5px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.alert-title .tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+.alert-title .tag.buy { background: rgba(7, 193, 96, 0.12); color: var(--buy); }
+.alert-title .tag.sell { background: rgba(250, 81, 81, 0.12); color: var(--sell); }
+.alert-sub { font-size: 13px; color: var(--text-2); margin-top: 3px; font-variant-numeric: tabular-nums; }
+.alert-time { font-size: 12px; color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* ---------- 底部状态栏 ---------- */
+.status-bar {
+  position: fixed; left: 0; right: 0;
+  bottom: calc(56px + env(safe-area-inset-bottom));
+  display: flex; justify-content: center; pointer-events: none;
+  z-index: 5;
+}
+.status-bar span {
+  background: rgba(29, 29, 31, 0.78); color: #fff;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  font-size: 11.5px; padding: 5px 14px; border-radius: 999px;
+  font-variant-numeric: tabular-nums; max-width: 92%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ---------- 底部导航 ---------- */
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  display: flex; justify-content: center; gap: 8vw;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--line);
+  padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
+}
+.tab {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  font-size: 10.5px; color: var(--text-3); padding: 4px 14px; border-radius: 10px;
+}
+.tab-icon { font-size: 21px; line-height: 1.2; filter: grayscale(1) opacity(0.55); }
+.tab.on { color: var(--blue); font-weight: 600; }
+.tab.on .tab-icon { filter: none; }
+@media (min-width: 480px) { .tab { font-size: 12px; } .tab-icon { font-size: 24px; } }
+
+/* ---------- 浮动按钮 ---------- */
+.fab {
+  position: fixed; right: 18px;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  z-index: 25;
+  display: flex; align-items: center; gap: 6px;
+  background: var(--blue); color: #fff;
+  font-size: 15px; font-weight: 600;
+  padding: 13px 20px; border-radius: 999px;
+  box-shadow: 0 6px 20px rgba(0, 122, 255, 0.38);
+  transition: transform 0.15s;
+}
+.fab:active { transform: scale(0.94); }
+.fab-plus { font-size: 19px; line-height: 1; }
+
+/* ---------- 按钮 ---------- */
+.btn {
+  border-radius: 14px; font-size: 16px; font-weight: 600;
+  padding: 13px 22px; transition: transform 0.15s, opacity 0.15s;
+  background: rgba(0, 0, 0, 0.05); color: var(--text);
+}
+.btn:active { transform: scale(0.97); opacity: 0.85; }
+.btn[disabled] { opacity: 0.5; pointer-events: none; }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-danger { background: rgba(250, 81, 81, 0.1); color: var(--sell); }
+.btn-lg { padding: 15px 34px; font-size: 17px; }
+.btn-block { width: 100%; margin-top: 14px; background: var(--card); box-shadow: var(--shadow); }
+
+/* ---------- 弹窗 ---------- */
+.modal {
+  position: fixed; inset: 0; z-index: 30;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex; align-items: flex-end; justify-content: center;
+  animation: fade 0.18s ease-out;
+}
+@keyframes fade { from { opacity: 0; } }
+.sheet {
+  width: 100%; max-width: 560px; max-height: 88vh; overflow-y: auto;
+  background: var(--bg);
+  border-radius: 22px 22px 0 0;
+  padding: 18px 18px calc(20px + env(safe-area-inset-bottom));
+  animation: rise 0.22s ease-out;
+}
+@keyframes rise { from { transform: translateY(40px); opacity: 0.6; } }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.sheet-head h2 { font-size: 20px; font-weight: 700; }
+.sheet-alert { text-align: center; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+.sheet-alert h2 { font-size: 19px; font-weight: 700; margin-bottom: 4px; }
+.confirm-text { font-size: 14.5px; color: var(--text-2); margin: 6px 0 14px; line-height: 1.55; }
+
+.field { margin-top: 14px; text-align: left; }
+.field label { display: block; font-size: 13.5px; font-weight: 600; color: var(--text-2); margin-bottom: 7px; }
+.field input {
+  width: 100%; font-size: 17px;
+  background: var(--card); border: 1.5px solid transparent; border-radius: 13px;
+  padding: 13px 14px; outline: none; color: var(--text);
+  transition: border-color 0.15s;
+}
+.field input:focus { border-color: var(--blue); }
+.hint { font-size: 12px; color: var(--text-3); margin-top: 6px; line-height: 1.5; }
+.hint.ok { color: var(--buy); }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 380px) { .row2 { grid-template-columns: 1fr; } }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+@media (max-width: 380px) { .row3 { grid-template-columns: 1fr; } }
+.target-box {
+  margin-top: 14px; padding: 12px;
+  background: rgba(88, 86, 214, 0.06);
+  border: 1px dashed rgba(88, 86, 214, 0.35);
+  border-radius: 12px;
+}
+.target-box .field:first-of-type { margin-top: 10px; }
+.target-box .hint { margin-top: 10px; }
+.target-title { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.target-summary {
+  margin-top: 12px; padding: 12px 14px;
+  background: rgba(88, 86, 214, 0.06);
+  border: 1px dashed rgba(88, 86, 214, 0.35);
+  border-radius: 12px;
+}
+.target-summary .hint { margin-top: 6px; }
+
+.switch-row { display: flex; align-items: center; justify-content: space-between; }
+.switch-row > label { margin-bottom: 0; }
+.switch { position: relative; display: inline-block; width: 51px; height: 31px; flex: none; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+  position: absolute; inset: 0; border-radius: 999px; background: rgba(0, 0, 0, 0.15);
+  transition: background 0.2s;
+}
+.slider::before {
+  content: ""; position: absolute; width: 27px; height: 27px; border-radius: 50%;
+  background: #fff; top: 2px; left: 2px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s;
+}
+.switch input:checked + .slider { background: var(--buy); }
+.switch input:checked + .slider::before { transform: translateX(20px); }
+
+.form-error { color: var(--sell); font-size: 13.5px; margin-top: 12px; text-align: left; }
+.sheet-actions { display: flex; gap: 10px; margin-top: 20px; }
+.sheet-actions .btn { flex: 1; }
+.sheet-actions-center { justify-content: center; }
+
+/* ---------- Toast ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: calc(120px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  background: rgba(29, 29, 31, 0.88); color: #fff;
+  font-size: 14px; padding: 11px 20px; border-radius: 999px;
+  z-index: 60; max-width: 86vw; text-align: center;
+  animation: fade 0.15s ease-out;
+}
+
+/* ---------- 批量导入 ---------- */
+.fab-secondary {
+  bottom: calc(134px + env(safe-area-inset-bottom));
+  background: var(--card);
+  color: var(--blue);
+  font-size: 14px;
+  box-shadow: var(--shadow);
+  padding: 11px 18px;
+}
+.fab-secondary .fab-plus { font-size: 16px; }
+
+.empty-alt { margin-top: 14px; font-size: 14px; }
+.link-btn { color: var(--blue); font-size: 14.5px; font-weight: 500; padding: 6px 10px; }
+
+.imp-sheet { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+.imp-sub { font-size: 13.5px; color: var(--text-2); margin: 2px 0 4px; }
+
+.dropzone {
+  margin-top: 12px;
+  border: 1.5px dashed rgba(0, 0, 0, 0.18);
+  border-radius: 16px;
+  padding: 26px 16px;
+  text-align: center;
+  background: var(--card);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.dropzone:active { background: rgba(0, 122, 255, 0.04); }
+.dropzone.dragover {
+  border-color: var(--blue);
+  background: rgba(0, 122, 255, 0.06);
+}
+.dz-main { font-size: 15px; font-weight: 500; color: var(--blue); }
+.dz-sub { font-size: 12px; color: var(--text-3); margin-top: 6px; line-height: 1.5; }
+
+.imp-divider {
+  display: flex; align-items: center; gap: 12px;
+  margin: 18px 0 4px;
+  color: var(--text-3); font-size: 12.5px;
+}
+.imp-divider::before, .imp-divider::after {
+  content: ""; flex: 1; height: 1px; background: var(--line);
+}
+
+#importModal textarea, .imp-sheet textarea {
+  width: 100%;
+  font-size: 14.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  line-height: 1.6;
+  background: var(--card);
+  border: 1.5px solid transparent;
+  border-radius: 13px;
+  padding: 12px 14px;
+  outline: none;
+  color: var(--text);
+  resize: vertical;
+  min-height: 128px;
+}
+.imp-sheet textarea:focus { border-color: var(--blue); }
+
+.imp-stats {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin: 6px 0 4px;
+}
+.imp-chip {
+  font-size: 13px; font-weight: 600;
+  padding: 6px 12px; border-radius: 999px;
+  background: var(--card); box-shadow: var(--shadow);
+  font-variant-numeric: tabular-nums;
+}
+.imp-chip.ok { color: var(--buy); }
+.imp-chip.dup { color: var(--warn); }
+.imp-chip.err { color: var(--sell); }
+
+.imp-table-wrap {
+  margin-top: 12px;
+  overflow-x: auto;
+  background: var(--card);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  -webkit-overflow-scrolling: touch;
+}
+.imp-table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 13px; }
+.imp-table th, .imp-table td {
+  text-align: left; padding: 9px 10px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.imp-table th { color: var(--text-2); font-weight: 600; font-size: 12px; position: sticky; top: 0; background: var(--card); }
+.imp-table tr:last-child td { border-bottom: none; }
+.imp-table td.note { white-space: normal; min-width: 140px; color: var(--text-2); font-size: 12px; }
+.imp-table .st-ok { color: var(--buy); }
+.imp-table .st-dup { color: var(--warn); }
+.imp-table .st-err { color: var(--sell); }
+.imp-table tr.row-err td { color: var(--text-3); }
+.imp-table td .warn-text { color: var(--warn); }
+
+.imp-result {
+  background: var(--card); border-radius: 16px; box-shadow: var(--shadow);
+  padding: 18px; margin-top: 8px;
+  font-size: 15px; line-height: 2;
+  font-variant-numeric: tabular-nums;
+}
+.imp-result .big { font-size: 19px; font-weight: 700; }
+.imp-result .ok { color: var(--buy); font-weight: 600; }
+.imp-result .dup { color: var(--warn); font-weight: 600; }
+.imp-result .err { color: var(--sell); font-weight: 600; }
+
+@media (min-width: 480px) {
+  .fab { bottom: calc(28px + env(safe-area-inset-bottom)); right: 28px; }
+  .fab-secondary { bottom: calc(90px + env(safe-area-inset-bottom)); right: 28px; }
+}
+
+/* ---------- 首页卡片：年度至今 ---------- */
+.ytd-row {
+  display: flex; gap: 14px; margin-top: 8px;
+  font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+  flex-wrap: wrap;
+}
+
+/* ---------- 距价线临近状态 ---------- */
+.st-near-buy { color: var(--buy); }
+.st-near-sell { color: var(--warn); }
+
+/* ---------- 详情页 ---------- */
+body.detail-open .tabbar,
+body.detail-open .fab,
+body.detail-open .fab-secondary { display: none; }
+body.detail-open .root { padding-bottom: calc(32px + env(safe-area-inset-bottom)); }
+
+.detail-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 0 10px;
+}
+.detail-head .icon-btn {
+  flex: none; width: 36px; height: 36px;
+  background: var(--card); border-radius: 12px;
+  box-shadow: var(--shadow); font-size: 18px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.icon-btn:active { transform: scale(0.95); }
+.detail-title-wrap { min-width: 0; flex: 1; }
+.detail-name {
+  font-size: 19px; font-weight: 700;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.detail-sub { font-size: 13px; color: var(--text-2); margin-top: 1px; }
+#detailChip { flex: none; }
+
+.detail-quote {
+  background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 18px; margin-top: 10px;
+}
+.detail-price-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.detail-price { font-size: 42px; font-weight: 700; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
+.detail-price.na { color: var(--text-3); font-size: 26px; font-weight: 600; }
+.detail-change { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.detail-banner {
+  margin-top: 14px; border-radius: 12px; padding: 10px 12px;
+  font-size: 14px; font-weight: 600;
+}
+.detail-banner.buy { background: rgba(7, 193, 96, 0.1); color: var(--buy); }
+.detail-banner.sell { background: rgba(250, 81, 81, 0.1); color: var(--sell); }
+
+.metric-row {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+  margin-top: 10px;
+}
+.metric {
+  background: var(--card); border-radius: 16px; box-shadow: var(--shadow);
+  padding: 12px 8px; text-align: center;
+}
+.metric b {
+  display: block; font-size: 17px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.metric span {
+  display: block; margin-top: 3px; font-size: 11.5px; color: var(--text-2);
+  white-space: nowrap;
+}
+
+.dist-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.dist-card {
+  background: var(--card); border-radius: 16px; box-shadow: var(--shadow);
+  padding: 14px;
+}
+.dist-card.sell { border-top: 3px solid rgba(250, 81, 81, 0.5); }
+.dist-card.buy { border-top: 3px solid rgba(7, 193, 96, 0.5); }
+.dist-label { font-size: 13px; color: var(--text-2); }
+.dist-label b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+.dist-val { margin-top: 6px; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.dist-val.ok-buy { color: var(--buy); }
+.dist-val.ok-sell { color: var(--sell); }
+.dist-val.near-buy { color: var(--buy); }
+.dist-val.near-sell { color: var(--warn); }
+.dist-val.st-wait { color: var(--text-3); font-weight: 500; }
+
+/* ---------- 详情页：历史行情 ---------- */
+.hist {
+  background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 16px; margin-top: 10px;
+}
+.hist .seg.seg-block { margin: 0 0 10px; }
+.seg.wrap { flex-wrap: wrap; }
+.seg.wrap button { flex: 1 1 calc(25% - 4px); min-width: 88px; }
+.hist-custom { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.hist-custom input[type="date"] {
+  flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 10px;
+  padding: 9px 8px; font-size: 14px; color: var(--text); background: #fff;
+  -webkit-appearance: none; appearance: none;
+}
+.hist-table-wrap { max-height: 46vh; overflow-y: auto; border-radius: 12px; }
+.hist-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.hist-table th {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--card); color: var(--text-2);
+  font-size: 12px; font-weight: 600; text-align: right;
+  padding: 9px 10px; border-bottom: 1px solid var(--line);
+}
+.hist-table th:first-child { text-align: left; }
+.hist-table td {
+  padding: 9px 10px; text-align: right;
+  font-size: 14px; border-bottom: 1px solid var(--line);
+}
+.hist-table td.d { text-align: left; color: var(--text-2); white-space: nowrap; }
+.hist-table tr:last-child td { border-bottom: none; }
+.hist-empty { padding: 26px 0 8px; text-align: center; color: var(--text-3); font-size: 14px; }
+.hist-note { margin-top: 12px; font-size: 12px; color: var(--text-3); }
+
+/* ---------- 详情页：操作按钮 ---------- */
+.detail-actions { margin-top: 16px; }
+.detail-actions .btn { display: block; }
+.detail-actions .btn:not(:first-child) { margin-top: 10px; }
+.detail-actions-note {
+  margin-top: 12px; text-align: center;
+  font-size: 12px; color: var(--text-3);
+}
+.btn-outline {
+  background: var(--card); color: var(--sell);
+  border: 1px solid rgba(250, 81, 81, 0.35);
+  box-shadow: none;
+}
+.btn-sm { padding: 9px 16px; font-size: 14px; border-radius: 12px; }
