@@ -62,6 +62,7 @@ exports.main = async (event = {}) => {
   const startedAt = Date.now();
 
   const settings = await loadSettings();
+  const today = beijingParts(startedAt).compactDate;
   const tradingDays = await resolveTradingDays(startedAt).catch(() => null);
   const phase = getTradingPhase({ holidays: settings.holidays, tradingDays, nowMs: startedAt });
 

@@ -6,7 +6,7 @@
  * 目标价/折扣仅为记录（编辑回填用），价格线由前端按 目标价 × 折扣 换算后提交。
  */
 const cloud = require('@cloudbase/node-sdk');
-const { toThsCode } = require('./lib/ths-api');
+const { toThsCode, fetchQuotes } = require('./lib/ths-api');
 const { assertAccess } = require('./lib/access-guard');
 
 const app = cloud.init({ env: cloud.SYMBOL_CURRENT_ENV });
@@ -69,6 +69,24 @@ exports.main = async (event = {}) => {
     if (dup.total > 0) return { ok: false, error: `代码 ${code} 已在监控列表中` };
 
     const now = new Date();
+    let currentPrice = null;
+    let changePercent = null;
+    let quoteError = null;
+    let lastFetchTime = null;
+
+    try {
+      const { quotes, failures } = await fetchQuotes(type, [thsCode]);
+      if (quotes && quotes[thsCode]) {
+        currentPrice = quotes[thsCode].price;
+        changePercent = quotes[thsCode].changePercent;
+        lastFetchTime = now;
+      } else if (failures && failures[thsCode]) {
+        quoteError = failures[thsCode];
+      }
+    } catch (qe) {
+      quoteError = qe.message;
+    }
+
     const doc = {
       type,
       code,
@@ -80,18 +98,17 @@ exports.main = async (event = {}) => {
       buyDiscount,
       sellDiscount,
       enabled: event.enabled !== false,
-      // 行情与触发状态由 ths-check-market 扫描时填充
-      currentPrice: null,
+      currentPrice,
       previousPrice: null,
-      changePercent: null,
-      buyTriggered: false,
-      sellTriggered: false,
-      buyAchievedAt: null,
-      sellAchievedAt: null,
+      changePercent,
+      buyTriggered: buyPrice != null && currentPrice != null && currentPrice <= buyPrice,
+      sellTriggered: sellPrice != null && currentPrice != null && currentPrice >= sellPrice,
+      buyAchievedAt: buyPrice != null && currentPrice != null && currentPrice <= buyPrice ? now : null,
+      sellAchievedAt: sellPrice != null && currentPrice != null && currentPrice >= sellPrice ? now : null,
       lastBuyAlertTime: null,
       lastSellAlertTime: null,
-      quoteError: null,
-      lastFetchTime: null,
+      quoteError,
+      lastFetchTime,
       createdAt: now,
       updatedAt: now,
     };

@@ -398,10 +398,13 @@ async function manualRefresh() {
     const r = await call('ths-check-market', { force: true });
     if (r && r.ok) {
       const a = (r.alertsCreated || 0) + (r.dividendAlertsCreated || 0);
-      toast(a > 0 ? `已刷新，新增 ${a} 条提醒` : '已刷新', 1500);
+      toast(a > 0 ? `已刷新行情，新增 ${a} 条提醒` : '行情已同步最新收盘价', 1500);
+    } else if (r && !r.ok) {
+      toast(`刷新异常：${r.error || '未知错误'}`);
     }
-  } catch (_) {}
-  finally {
+  } catch (e) {
+    toast(`刷新失败：${e.message}`);
+  } finally {
     await Promise.all([loadWatches({ silent: true }), loadPortfolio({ silent: true })]);
     btn.classList.remove('spinning');
     state.refreshBusy = false;
