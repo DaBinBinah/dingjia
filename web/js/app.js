@@ -1,5 +1,6 @@
 /**
- * 我的投资监控 V3 —— 前端全量业务逻辑
+ * 盯价 —— 前端全量业务逻辑
+ * Slogan: 你定价格，我来盯。
  * 包含：A股/ETF价格监控 + 分红雷达 + 资产管理 + 持仓盈亏 + 补仓/卖出模拟器 + 批量导入
  */
 'use strict';
@@ -2305,7 +2306,7 @@ function switchView(view) {
   document.body.classList.toggle('detail-open', view === 'detail' || view === 'holdingDetail');
 
   if (view === 'watches') {
-    $('#appTitle').textContent = '我的投资监控';
+    $('#appTitle').textContent = '盯价';
     loadWatches({ silent: true });
   } else if (view === 'portfolio') {
     $('#appTitle').textContent = '我的资产';
