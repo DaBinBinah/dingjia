@@ -1,19 +1,38 @@
 /**
  * 提醒服务：PriceMonitor(ths-check-market) → AlertService → NotificationService
- * 只负责提醒的构造、落库与分发。全系统仅此链路产生提醒，绝不包含任何交易/委托/下单逻辑。
+ * 只负责价格与分红提醒的构造、落库与分发。全系统仅此链路产生提醒，绝不包含任何交易/委托/下单逻辑。
  */
 const notificationService = require('./notification-service');
 
-/** 构造提醒记录（alerts 集合文档） */
-function buildAlert(watch, alertType, currentPrice, now) {
+/** 构造价格提醒记录（alerts 集合文档） */
+function buildAlert(watch, alertType, currentPrice, now = new Date()) {
   return {
     watchId: watch._id,
     type: watch.type,
     code: watch.code,
     name: watch.name,
-    alertType, // 'buy' | 'sell'
+    alertType, // 'buy' | 'sell' (兼容旧版)
     triggerPrice: alertType === 'buy' ? watch.buyPrice : watch.sellPrice,
     currentPrice,
+    createdAt: now,
+  };
+}
+
+/** 构造分红提醒记录（alerts 集合文档） */
+function buildDividendAlert(watch, alertType, dividendInfo, now = new Date()) {
+  return {
+    watchId: watch._id,
+    type: watch.type,
+    code: watch.code,
+    name: watch.name,
+    alertType, // 'DIVIDEND_10D' | 'DIVIDEND_5D' | 'DIVIDEND_3D' | 'DIVIDEND_1D' | 'DIVIDEND_TODAY'
+    dividendPerShare: dividendInfo.dividendPerShare,
+    recordDate: dividendInfo.recordDate,
+    exDividendDate: dividendInfo.exDividendDate,
+    paymentDate: dividendInfo.paymentDate,
+    tradingDaysLeft: dividendInfo.tradingDaysLeft,
+    currentPrice: watch.currentPrice || null,
+    triggerPrice: null,
     createdAt: now,
   };
 }
@@ -37,4 +56,4 @@ async function dispatch(db, alertsCollection, alert, watch) {
   return true;
 }
 
-module.exports = { buildAlert, dispatch };
+module.exports = { buildAlert, buildDividendAlert, dispatch };

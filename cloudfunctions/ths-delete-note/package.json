@@ -1,0 +1,7 @@
+{
+  "name": "ths-delete-note",
+  "version": "1.0.0",
+  "dependencies": {
+    "@cloudbase/node-sdk": "^2.11.0"
+  }
+}

@@ -1,19 +1,23 @@
 /**
- * ths-check-market —— 价格监控核心
+ * ths-check-market —— 价格监控与分红雷达核心
  *
  * 触发：定时触发器（每 10 秒，内部按配置的监控间隔节流）或前端手动调用（event.force=true
  * 可在非交易时间强制拉取一次，用于手动刷新）。
  *
- * 流程：读取开启的标的 → 按类型批量取行情 → 价格穿越判断 → 生成提醒 →
- *       原子更新标的状态 → AlertService 分发通知。
+ * 流程：
+ * 1. 读取开启的标的 → 按类型批量取行情
+ * 2. 价格穿越判断 → 生成价格提醒 → CAS 原子更新标的状态 → AlertService 分发
+ * 3. 分红雷达检查 → 计算股权登记日交易日倒计时 → 分红关键节点提醒(10D/5D/3D/1D/TODAY) → AlertService 分发
+ * 4. 记录扫描元数据 (scan_state)
  *
- * 红线：本函数只做「获取行情 → 判断价格 → 发出提醒」，全代码库不存在任何
+ * 红线：本函数只做「获取行情/分红 → 判断价格/日期 → 发出提醒」，全代码库不存在任何
  *       买入/卖出/委托/撤单等交易逻辑。
  */
 const cloud = require('@cloudbase/node-sdk');
 const { fetchQuotes, fetchTradingDays } = require('./lib/ths-api');
-const { beijingParts, getTradingPhase, isTradingTime } = require('./lib/trading-time');
+const { beijingParts, getTradingPhase, isTradingTime, getTradingDaysBetween } = require('./lib/trading-time');
 const alertService = require('./lib/alert-service');
+const dividendService = require('./lib/dividend-service');
 const { assertAccess } = require('./lib/access-guard');
 
 const app = cloud.init({ env: cloud.SYMBOL_CURRENT_ENV });
@@ -22,6 +26,7 @@ const db = app.database();
 const WATCH_COLL = 'ths_watchlist';
 const ALERTS_COLL = 'ths_alerts';
 const CONFIG_COLL = 'ths_config';
+const TOUCH_COLL = 'ths_price_touches';
 
 async function loadSettings() {
   const snap = await db.collection(CONFIG_COLL).where({ key: 'settings' }).limit(1).get();
@@ -83,6 +88,7 @@ exports.main = async (event = {}) => {
     phase,
     scanned: watches.length,
     alertsCreated: 0,
+    dividendAlertsCreated: 0,
     priceErrors: 0,
     results: [],
     serverTime: startedAt,
@@ -119,22 +125,28 @@ exports.main = async (event = {}) => {
 
     const price = quote.price;
     const prev = typeof w.currentPrice === 'number' ? w.currentPrice : null;
-    const triggers = []; // 本次要触发的提醒类型
+    const triggers = []; // 本次要触发的价格提醒类型
     const rearm = {}; // 需要复位（重新武装）的触发标记
 
+    // 跨日重置：新交易日开始时自动重置触发锁，保证新交易日能够产生当日首次触达
+    const lastDate = w.lastFetchTime ? beijingParts(new Date(w.lastFetchTime).getTime()).compactDate : null;
+    const isNewTradingDay = lastDate !== today;
+    const buyTriggerLocked = isNewTradingDay ? false : Boolean(w.buyTriggered);
+    const sellTriggerLocked = isNewTradingDay ? false : Boolean(w.sellTriggered);
+
     if (prev === null) {
-      // 首次观测：只初始化状态；若已越过阈值且从未触发过，补发一次（视为进入区间）
-      if (w.buyPrice != null && price <= w.buyPrice && !w.buyTriggered) triggers.push('buy');
-      if (w.sellPrice != null && price >= w.sellPrice && !w.sellTriggered) triggers.push('sell');
+      // 首次观测：若已越过阈值且未锁定，产生首次触达快照
+      if (w.buyPrice != null && price <= w.buyPrice && !buyTriggerLocked) triggers.push('buy');
+      if (w.sellPrice != null && price >= w.sellPrice && !sellTriggerLocked) triggers.push('sell');
     } else {
-      // 买入线：仅「从线上方穿越到线下方」触发一次；回到上方后自动重新武装
+      // 买入线：从区域外重新进入（或跨日首次处于目标区）时触发；回升到上方后自动重新武装
       if (w.buyPrice != null) {
-        if (!w.buyTriggered && prev > w.buyPrice && price <= w.buyPrice) triggers.push('buy');
+        if (!buyTriggerLocked && price <= w.buyPrice) triggers.push('buy');
         else if (w.buyTriggered && price > w.buyPrice) rearm.buyTriggered = false;
       }
-      // 卖出线：仅「从下方穿越到上方」触发一次；回到下方后自动重新武装
+      // 卖出线：从区域外重新进入（或跨日首次处于目标区）时触发；回落到下方后自动重新武装
       if (w.sellPrice != null) {
-        if (!w.sellTriggered && prev < w.sellPrice && price >= w.sellPrice) triggers.push('sell');
+        if (!sellTriggerLocked && price >= w.sellPrice) triggers.push('sell');
         else if (w.sellTriggered && price < w.sellPrice) rearm.sellTriggered = false;
       }
     }
@@ -149,7 +161,7 @@ exports.main = async (event = {}) => {
     };
 
     try {
-if (triggers.length) {
+      if (triggers.length) {
         // 原子抢占：仅当触发标记仍为 false 时更新才生效，防止定时器与手动刷新并发导致重复提醒
         const cond = { _id: w._id };
         const upd = { ...baseUpdate, ...rearm };
@@ -157,29 +169,131 @@ if (triggers.length) {
           cond[`${t}Triggered`] = false;
           upd[`${t}Triggered`] = true;
           upd[t === 'buy' ? 'lastBuyAlertTime' : 'lastSellAlertTime'] = now;
-          // 「已完成」记录（一次性）：曾达成过就永久保留，供前端已达成分类筛选；
-          // 仅编辑价格线/代码时由 ths-update-watch 重置
           if (!w[`${t}AchievedAt`]) upd[`${t}AchievedAt`] = now;
+          upd.lastTouch = {
+            alertType: t,
+            targetPrice: t === 'buy' ? w.buyPrice : w.sellPrice,
+            triggerPrice: price,
+            triggeredAt: now,
+            status: 'ACTIVE',
+          };
         }
         const res = await db.collection(WATCH_COLL).where(cond).update(upd);
-        // node-sdk 返回结构随版本不同：{updated: N} 或 {stats: {updated: N}}，两者都兼容
         const updatedCount = Number(
           res && (res.updated != null ? res.updated : res.stats && res.stats.updated != null ? res.stats.updated : 0)
         );
         const claimed = updatedCount === 1;
         if (claimed) {
           for (const t of triggers) {
-            const alert = alertService.buildAlert(w, t, price, now);
-            const saved = await alertService.dispatch(db, ALERTS_COLL, alert, w);
+            const targetP = t === 'buy' ? w.buyPrice : w.sellPrice;
+            const cycleId = `cycle_${w.code}_${t}_${now.getTime()}`;
+            const touchDoc = {
+              watchId: w._id,
+              code: w.code,
+              name: w.name,
+              type: w.type,
+              thsCode: w.thsCode,
+              alertType: t,
+              targetPrice: targetP,
+              triggerPrice: price,
+              previousPrice: prev,
+              currentPrice: price,
+              dayChangePercent: quote.changePercent,
+              dayHigh: quote.dayHigh,
+              dayLow: quote.dayLow,
+              volume: quote.volume,
+              turnover: quote.turnover,
+              triggeredAt: now,
+              detectedAt: now,
+              marketDataTime: quote.marketDataTime || now,
+              triggerCycleId: cycleId,
+              status: 'ACTIVE',
+              notificationStatus: 'PENDING',
+              source: 'THS_REST_SNAPSHOT',
+              createdAt: now,
+            };
+
+            // 1. 先保存触达快照（即使通知失败触达历史也绝对不丢）
+            let touchId = null;
+            try {
+              const tRes = await db.collection(TOUCH_COLL).add(touchDoc);
+              touchId = tRes.id || (tRes._id);
+            } catch (_) {}
+
+            // 2. 发送提醒
+            let saved = false;
+            let notifErr = null;
+            try {
+              const alert = alertService.buildAlert(w, t, price, now);
+              saved = await alertService.dispatch(db, ALERTS_COLL, alert, w);
+            } catch (ne) {
+              notifErr = ne.message;
+            }
+
             if (saved) result.alertsCreated++;
+
+            // 3. 回填通知状态
+            if (touchId) {
+              await db.collection(TOUCH_COLL).doc(touchId).update({
+                notificationStatus: saved ? 'SENT' : 'FAILED',
+                notificationError: notifErr,
+                notifiedAt: new Date(),
+              }).catch(() => {});
+            }
           }
           result.results.push({ code: w.code, ok: true, triggered: triggers });
         } else {
           result.results.push({ code: w.code, ok: true, note: '并发扫描已处理' });
         }
       } else {
-        await db.collection(WATCH_COLL).doc(w._id).update({ ...baseUpdate, ...rearm });
+        // 如果离开了目标区域，更新 lastTouch 状态为 RETURNED
+        const extraTouchUpd = {};
+        if (rearm.buyTriggered === false || rearm.sellTriggered === false) {
+          extraTouchUpd['lastTouch.status'] = 'RETURNED';
+          // 异步标记触达记录已回落
+          db.collection(TOUCH_COLL).where({ watchId: w._id, status: 'ACTIVE' }).update({ status: 'RETURNED' }).catch(() => {});
+        }
+        await db.collection(WATCH_COLL).doc(w._id).update({ ...baseUpdate, ...rearm, ...extraTouchUpd });
         result.results.push({ code: w.code, ok: true });
+      }
+
+      // ---------------- 分红雷达检查 ----------------
+      try {
+        const divInfo = await dividendService.getDividendData(db, w.type, w.code, {
+          currentPrice: price,
+          buyPrice: w.buyPrice,
+          tradingDays,
+          holidays: settings.holidays,
+        });
+
+        if (divInfo && divInfo.latest && divInfo.latest.recordDateMs && divInfo.latest.dividendPerShare > 0) {
+          const daysLeft = divInfo.tradingDaysLeft;
+          let targetAlertType = null;
+          if (daysLeft === 10) targetAlertType = 'DIVIDEND_10D';
+          else if (daysLeft === 5) targetAlertType = 'DIVIDEND_5D';
+          else if (daysLeft === 3) targetAlertType = 'DIVIDEND_3D';
+          else if (daysLeft === 1) targetAlertType = 'DIVIDEND_1D';
+          else if (daysLeft === 0) targetAlertType = 'DIVIDEND_TODAY';
+
+          if (targetAlertType && w.lastDividendAlertType !== targetAlertType) {
+            const divAlert = alertService.buildDividendAlert(w, targetAlertType, {
+              ...divInfo.latest,
+              tradingDaysLeft: daysLeft,
+            }, now);
+            const saved = await alertService.dispatch(db, ALERTS_COLL, divAlert, w);
+            if (saved) {
+              result.dividendAlertsCreated++;
+              await db.collection(WATCH_COLL).doc(w._id).update({
+                lastDividendAlertType: targetAlertType,
+                lastDividendAlertTime: now,
+                updatedAt: now,
+              }).catch(() => {});
+            }
+          }
+        }
+      } catch (divErr) {
+        // 单个标的分红检查失败不影响主流程
+        console.error(`[ths-check-market] 分红检查异常 (${w.code}):`, divErr.message);
       }
     } catch (e) {
       result.results.push({ code: w.code, ok: false, error: `状态更新失败：${e.message}` });
@@ -190,7 +304,7 @@ if (triggers.length) {
   const scanState = {
     lastScanAt: startedAt,
     lastScanOk: result.priceErrors === 0,
-    lastAlerts: result.alertsCreated,
+    lastAlerts: result.alertsCreated + result.dividendAlertsCreated,
   };
   const stateSnap = await db.collection(CONFIG_COLL).where({ key: 'scan_state' }).limit(1).get();
   const stateDoc = (stateSnap.data && stateSnap.data[0]) || null;

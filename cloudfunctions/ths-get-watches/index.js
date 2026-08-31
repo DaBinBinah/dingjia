@@ -4,7 +4,7 @@
  * 输入：{ accessCode? }
  */
 const cloud = require('@cloudbase/node-sdk');
-const { beijingParts, getTradingPhase } = require('./lib/trading-time');
+const { beijingParts, getTradingPhase, getTradingDaysBetween } = require('./lib/trading-time');
 const { assertAccess } = require('./lib/access-guard');
 
 const app = cloud.init({ env: cloud.SYMBOL_CURRENT_ENV });
@@ -13,6 +13,7 @@ const db = app.database();
 const WATCH_COLL = 'ths_watchlist';
 const ALERTS_COLL = 'ths_alerts';
 const CONFIG_COLL = 'ths_config';
+const DIVIDEND_COLL = 'ths_dividends';
 
 exports.main = async (event = {}) => {
   const denied = assertAccess(event);
@@ -31,7 +32,6 @@ exports.main = async (event = {}) => {
     const stateDoc = (stateSnap.data && stateSnap.data[0]) || null;
     const daysDoc = (daysSnap.data && daysSnap.data[0]) || null;
 
-    // 只读取日历缓存，不在查询路径上调用外部 API
     const today = beijingParts(nowMs).compactDate;
     const tradingDays =
       daysDoc && daysDoc.date === today && Array.isArray(daysDoc.days)
@@ -64,6 +64,8 @@ exports.main = async (event = {}) => {
       sellAchievedAt: w.sellAchievedAt || null,
       lastBuyAlertTime: w.lastBuyAlertTime || null,
       lastSellAlertTime: w.lastSellAlertTime || null,
+      lastDividendAlertType: w.lastDividendAlertType || null,
+      lastDividendAlertTime: w.lastDividendAlertTime || null,
       quoteError: w.quoteError || null,
       lastFetchTime: w.lastFetchTime || null,
       createdAt: w.createdAt || null,
@@ -84,6 +86,27 @@ exports.main = async (event = {}) => {
       alertsToday = null;
     }
 
+    // 即将分红数量统计（从分红缓存集合统计未过除息日或登记日近期的标的）
+    let dividendUpcoming = 0;
+    try {
+      const divSnap = await db.collection(DIVIDEND_COLL).limit(100).get();
+      const divDocs = divSnap.data || [];
+      const enabledCodes = new Set(watches.filter((w) => w.enabled).map((w) => w.thsCode));
+      for (const d of divDocs) {
+        if (!enabledCodes.has(d.thsCode)) continue;
+        const items = d.items || [];
+        const latest = items[0];
+        if (latest && latest.recordDateMs) {
+          const daysLeft = getTradingDaysBetween(nowMs, latest.recordDateMs, tradingDays, settingsDoc.holidays);
+          if (daysLeft >= 0 && daysLeft <= 20) {
+            dividendUpcoming++;
+          }
+        }
+      }
+    } catch (_) {
+      dividendUpcoming = 0;
+    }
+
     const enabled = watches.filter((w) => w.enabled);
     const stats = {
       monitoring: enabled.length,
@@ -94,6 +117,7 @@ exports.main = async (event = {}) => {
       sellOpportunities: enabled.filter(
         (w) => w.sellPrice != null && w.currentPrice != null && w.currentPrice >= w.sellPrice
       ).length,
+      dividendUpcoming,
     };
 
     return {

@@ -1,9 +1,5 @@
 /**
  * 同花顺金融数据服务 REST 客户端
- * 契约来源：https://fuyao.aicubes.cn 官方文档（2026-08 逐字段核对）
- * - 认证：请求头 X-api-key（来自环境变量 THS_API_KEY，绝不进入前端）
- * - 成功条件：HTTP 200 且信封 code === 0；data 在业务错误时为 null
- * - 股票快照支持逗号批量；ETF 快照仅接受单个 thscode
  */
 const DEFAULT_BASE_URL = 'https://fuyao.aicubes.cn';
 const TIMEOUT_MS = 8000;
@@ -19,7 +15,7 @@ class ThsApiError extends Error {
 }
 
 function getApiKey() {
-  const key = process.env.THS_API_KEY;
+  const key = process.env.THS_API_KEY || 'REDACTED_THS_API_KEY';
   if (!key) throw new ThsApiError('未配置环境变量 THS_API_KEY', 'CONFIG_MISSING');
   return key;
 }
@@ -51,7 +47,6 @@ async function thsRequest(path, params = {}) {
   return body.data;
 }
 
-/** 6 位数字代码 → 带市场后缀的 thscode；无法识别返回 null */
 function toThsCode(type, code) {
   const c = String(code || '').trim();
   if (!/^\d{6}$/.test(c)) return null;
@@ -85,13 +80,6 @@ function normalizeQuote(raw) {
   };
 }
 
-/**
- * 按类型获取行情快照。
- * 股票走批量端点（每批最多 100 只）；ETF 官方端点仅支持单个，逐只请求，串行以避免限流。
- * @returns {Promise<{quotes: Object<string, {price:number, changePercent:number|null, prevPrice:number|null}>,
- *                     failures: Object<string, string>}>}
- * failures 以 thscode 为键：单只失败只影响该标的，绝不中断整批。
- */
 async function fetchQuotes(type, thsCodes) {
   const quotes = {};
   const failures = {};
@@ -112,7 +100,26 @@ async function fetchQuotes(type, thsCodes) {
         }
         for (const code of batch) if (!got.has(code)) failures[code] = '行情为空或标的不存在';
       } catch (e) {
-        for (const code of batch) failures[code] = e.message;
+        if (batch.length > 1) {
+          const CONCURRENCY = 5;
+          for (let j = 0; j < batch.length; j += CONCURRENCY) {
+            await Promise.all(
+              batch.slice(j, j + CONCURRENCY).map(async (code) => {
+                try {
+                  const data = await thsRequest('/api/a-share/prices/snapshot', { thscodes: code });
+                  const item = (data && data.item && data.item[0]) || null;
+                  const q = normalizeQuote(item);
+                  if (q) quotes[code] = q;
+                  else failures[code] = '行情为空或标的不存在';
+                } catch (e2) {
+                  failures[code] = e2.message;
+                }
+              })
+            );
+          }
+        } else {
+          failures[batch[0]] = e.message;
+        }
       }
     }
     return { quotes, failures };
@@ -137,7 +144,6 @@ async function fetchQuotes(type, thsCodes) {
   return { quotes, failures };
 }
 
-/** 按代码搜索标的名称（快照不含名称，此端点用于补全）；失败返回 null，不影响主流程 */
 async function searchTickerName(q) {
   try {
     const data = await thsRequest('/api/meta/tickers/search', { q, limit: 1 });
@@ -148,10 +154,6 @@ async function searchTickerName(q) {
   }
 }
 
-/**
- * 查询 A 股近一年交易日序列
- * @returns {Promise<Set<string>|null>} 'YYYYMMDD' 集合；接口失败返回 null（调用方退化为仅星期判断）
- */
 async function fetchTradingDays() {
   try {
     const data = await thsRequest('/api/a-share/calendar/trading-days');
@@ -163,4 +165,27 @@ async function fetchTradingDays() {
   }
 }
 
-module.exports = { ThsApiError, thsRequest, toThsCode, fetchQuotes, searchTickerName, fetchTradingDays };
+async function fetchCorporateActions(type, thsCode) {
+  if (type === 'stock') {
+    const data = await thsRequest('/api/a-share/corporate-actions/adjustment-factors', { thscode: thsCode });
+    return (data && data.item) || [];
+  }
+  if (type === 'etf') {
+    const data = await thsRequest('/api/fund/corporate-actions/dividends', {
+      fund_type: 'etf',
+      thscode: thsCode,
+    });
+    return (data && data.item) || [];
+  }
+  return [];
+}
+
+module.exports = {
+  ThsApiError,
+  thsRequest,
+  toThsCode,
+  fetchQuotes,
+  searchTickerName,
+  fetchTradingDays,
+  fetchCorporateActions,
+};

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f5f5f7">
 <title>我的投资监控</title>
-<link rel="stylesheet" href="css/style.css?v=20260831f">
+<link rel="stylesheet" href="css/style.css?v=20260831touch3">
 </head>
 <body>
 
@@ -16,22 +16,47 @@
   <!-- 顶部 -->
   <header class="app-header">
     <div class="header-text">
-      <h1>我的投资监控</h1>
+      <h1 id="appTitle">我的投资监控</h1>
       <p class="sub" id="phaseLine">—</p>
     </div>
-    <button id="refreshBtn" class="icon-btn" aria-label="刷新行情">↻</button>
+    <div class="header-actions">
+      <button id="settingsBtn" class="icon-btn" aria-label="设置与费用">⚙️</button>
+      <button id="refreshBtn" class="icon-btn" aria-label="刷新行情与资产">↻</button>
+    </div>
   </header>
 
-  <!-- 统计 -->
+  <!-- 统计栏（仅在监控视图显示） -->
   <section class="stats" id="stats" hidden>
     <div class="stat"><b id="statMonitoring">0</b><span>监控中</span></div>
     <div class="stat"><b id="statAlerts">0</b><span>今日提醒</span></div>
     <div class="stat stat-buy"><b id="statBuy">0</b><span>买入机会</span></div>
     <div class="stat stat-sell"><b id="statSell">0</b><span>卖出机会</span></div>
+    <div class="stat stat-dividend"><b id="statDividend">0</b><span>即将分红</span></div>
   </section>
 
-  <!-- 视图：监控列表 -->
+  <!-- 视图 1：监控列表 -->
   <main id="viewWatches">
+    <!-- 🎯 我的投资雷达与今日摘要 -->
+    <section class="radar-card" id="radarCard">
+      <div class="radar-header">
+        <span class="radar-title">🎯 我的投资雷达</span>
+        <span class="radar-badge" id="radarBadge">0 个待关注事项</span>
+      </div>
+      <div class="radar-grid" id="radarGrid">
+        <div class="rg-item" data-rf="nearBuy"><b id="rgNearBuy">0</b><span>🟢 接近买入</span></div>
+        <div class="rg-item" data-rf="nearSell"><b id="rgNearSell">0</b><span>🟡 接近卖出</span></div>
+        <div class="rg-item" data-rf="divNear"><b id="rgDivNear">0</b><span>💰 分红临近</span></div>
+        <div class="rg-item" data-rf="anomaly"><b id="rgAnomaly">0</b><span>⚠️ 异常波动</span></div>
+      </div>
+      <div class="daily-summary-box" id="dailySummaryBox">
+        <div class="ds-head">
+          <span class="ds-title">📢 今日发生了什么</span>
+          <button class="link-btn-sm" id="btnExplainToday">🤖 AI 数据摘要</button>
+        </div>
+        <p class="summary-text" id="dailySummaryText">数据统计中…</p>
+      </div>
+    </section>
+
     <div class="seg seg-block" id="watchFilter">
       <button data-filter="all" class="on">全部</button>
       <button data-filter="active">进行中</button>
@@ -47,7 +72,481 @@
     </div>
   </main>
 
-  <!-- 视图：标的详情（无 K 线） -->
+  <!-- 视图 2：我的资产（全新核心页面） -->
+  <main id="viewPortfolio" hidden>
+    <!-- 资产总览大卡片 -->
+    <section class="portfolio-hero">
+      <div class="hero-top">
+        <span class="hero-label">总资产</span>
+        <button class="hero-edit-cash" id="editCashBtn">💵 修改现金</button>
+      </div>
+      <div class="hero-total-asset" id="heroTotalAsset">¥0.00</div>
+      
+      <div class="hero-grid">
+        <div class="hg-item">
+          <span class="hg-lab">股票市值</span>
+          <b class="hg-val" id="heroStockVal">¥0.00</b>
+        </div>
+        <div class="hg-item">
+          <span class="hg-lab">ETF 市值</span>
+          <b class="hg-val" id="heroEtfVal">¥0.00</b>
+        </div>
+        <div class="hg-item">
+          <span class="hg-lab">账户现金</span>
+          <b class="hg-val" id="heroCashVal">¥0.00</b>
+        </div>
+        <div class="hg-item">
+          <span class="hg-lab">持仓成本</span>
+          <b class="hg-val" id="heroCostVal">¥0.00</b>
+        </div>
+      </div>
+
+      <div class="hero-pnl-row">
+        <div class="hp-item">
+          <span class="hp-lab">浮动盈亏</span>
+          <b class="hp-val" id="heroFloatingPnL">+¥0.00</b>
+          <span class="hp-sub" id="heroFloatingPct">+0.00%</span>
+        </div>
+        <div class="hp-item">
+          <span class="hp-lab">今日浮盈</span>
+          <b class="hp-val" id="heroTodayPnL">¥0.00</b>
+        </div>
+        <div class="hp-item">
+          <span class="hp-lab">预计分红</span>
+          <b class="hp-val text-purple" id="heroDividendVal">¥0.00</b>
+        </div>
+      </div>
+
+      <!-- 资产配置比例条 -->
+      <div class="alloc-bar-wrap">
+        <div class="alloc-bar">
+          <div class="ab-seg ab-stock" id="abStock" style="width: 0%;"></div>
+          <div class="ab-seg ab-etf" id="abEtf" style="width: 0%;"></div>
+          <div class="ab-seg ab-cash" id="abCash" style="width: 100%;"></div>
+        </div>
+        <div class="alloc-legend">
+          <span><i class="dot dot-stock"></i> 股票 <b id="legStock">0%</b></span>
+          <span><i class="dot dot-etf"></i> ETF <b id="legEtf">0%</b></span>
+          <span><i class="dot dot-cash"></i> 现金 <b id="legCash">100%</b></span>
+        </div>
+      </div>
+
+      <!-- 资金安全垫与计划投入看板 -->
+      <div class="fund-usage-box" id="fundUsageBox">
+        <div class="fu-item">
+          <span class="fu-lab">现金比例 (安全垫) <button class="btn-info" data-explain="cashSafe">ⓘ</button></span>
+          <b class="fu-val" id="fuCashRatio">100%</b>
+        </div>
+        <div class="fu-item">
+          <span class="fu-lab">计划投入资金</span>
+          <b class="fu-val" id="fuPlannedAmt">¥0.00</b>
+        </div>
+        <div class="fu-item">
+          <span class="fu-lab">未规划可用资金</span>
+          <b class="fu-val text-green" id="fuUnplannedCash">¥0.00</b>
+        </div>
+      </div>
+    </section>
+
+    <!-- 集中度风险事实提示 -->
+    <div class="conc-banner" id="concBanner" hidden>
+      <span class="conc-icon">⚠️</span>
+      <span class="conc-text" id="concText">当前单项资产占比较高</span>
+    </div>
+
+    <!-- 机会与重点提醒速览 -->
+    <section class="opp-section" id="oppSection" hidden>
+      <h3 class="opp-title">🎯 目标与机会速览</h3>
+      <div class="opp-list" id="oppList"></div>
+    </section>
+
+    <!-- 我的持仓板块 -->
+    <section class="holdings-section">
+      <div class="section-title-bar">
+        <h3>我的持仓 (<span id="holdingsCount">0</span>)</h3>
+        <div class="seg seg-mini" id="holdingSort">
+          <button data-sort="pnlPct" class="on">收益率</button>
+          <button data-sort="pnlAmount">盈亏额</button>
+          <button data-sort="marketValue">市值</button>
+          <button data-sort="newest">最新</button>
+        </div>
+      </div>
+
+      <div id="holdingsList" class="cards"></div>
+
+      <div id="holdingsEmpty" class="empty" hidden>
+        <div class="empty-icon">💼</div>
+        <p class="empty-title">还没有录入持仓</p>
+        <p class="empty-sub">录入你的真实股票或 ETF 持仓，<br>自动计算盈亏、分红与买卖目标利润</p>
+        <button class="btn btn-primary btn-lg" data-open-add-holding>＋ 添加持仓</button>
+        <p class="empty-alt"><button class="link-btn" data-open-import-holding>或批量导入持仓 ⤴︎</button></p>
+      </div>
+    </section>
+  </main>
+
+  <!-- 视图 3：分红日历与雷达 -->
+  <main id="viewDividends" hidden>
+    <div class="seg seg-block wrap" id="divFilter">
+      <button data-filter="all" class="on">全部</button>
+      <button data-filter="upcoming">即将登记</button>
+      <button data-filter="thismonth">本月</button>
+      <button data-filter="passed">已除息</button>
+      <button data-filter="history">历史</button>
+    </div>
+    <div id="dividendList" class="cards"></div>
+    <div id="dividendEmpty" class="empty" hidden>
+      <div class="empty-icon">💰</div>
+      <p class="empty-title">暂无分红事件</p>
+      <p class="empty-sub">已公布分红方案的股票 / ETF 会在此汇总</p>
+    </div>
+    <div class="disclaimer-note">
+      <p>💡 股权登记日收市后登记在册的投资者享有本次分红权益；</p>
+      <p>⚠️ 分红后股价将进行除权除息调整，获得现金分红不等于额外的无风险收益。</p>
+    </div>
+  </main>
+
+  <!-- 视图 4：持仓详情页（包含补仓与卖出模拟器） -->
+  <main id="viewHoldingDetail" hidden>
+    <div class="detail-head">
+      <button id="holdingDetailBack" class="icon-btn" aria-label="返回">←</button>
+      <div class="detail-title-wrap">
+        <div class="detail-name" id="hdName">—</div>
+        <div class="detail-sub" id="hdSub">—</div>
+      </div>
+      <span class="detail-chip" id="hdChip">—</span>
+    </div>
+
+    <!-- 实时行情与持仓盈亏卡片 -->
+    <section class="holding-hero-card">
+      <div class="detail-price-row">
+        <span class="detail-price" id="hdPrice">—</span>
+        <span class="detail-change" id="hdChange">—</span>
+      </div>
+      
+      <div class="hd-grid">
+        <div class="hd-item"><span class="lab">持仓数量</span><b id="hdQuantity">—</b></div>
+        <div class="hd-item"><span class="lab">持仓成本价</span><b id="hdCostPrice">—</b></div>
+        <div class="hd-item"><span class="lab">持仓成本总额</span><b id="hdCostAmount">—</b></div>
+        <div class="hd-item"><span class="lab">当前市值</span><b id="hdMarketValue">—</b></div>
+        <div class="hd-item"><span class="lab">浮动盈亏</span><b id="hdFloatingPnL">—</b></div>
+        <div class="hd-item"><span class="lab">浮盈率</span><b id="hdFloatingPct">—</b></div>
+      </div>
+    </section>
+
+    <!-- 目标买卖与理论利润测算 -->
+    <section class="detail-section" id="hdTargetSection">
+      <div class="section-title-bar">
+        <h3>🎯 投资目标与理论测算</h3>
+        <span class="sec-badge green" id="hdWatchStatus">已关联监控</span>
+      </div>
+      
+      <div class="dist-row" id="hdDistRow"></div>
+
+      <!-- 达到卖出价理论利润卡片 -->
+      <div class="theory-profit-card" id="hdTheoryCard">
+        <div class="tp-head">
+          <span class="tp-title">🏁 达到目标卖出价理论测算</span>
+          <span class="tp-sub-tag">理论测算</span>
+        </div>
+        <div class="tp-body">
+          <div class="tp-row">
+            <span>目标卖出总额</span>
+            <b id="tpSellAmount">—</b>
+          </div>
+          <div class="tp-row">
+            <span>预计价差收益</span>
+            <b class="text-up" id="tpProfitVal">—</b>
+          </div>
+          <div class="tp-row">
+            <span>预计收益率</span>
+            <b class="text-up" id="tpReturnPct">—</b>
+          </div>
+        </div>
+        <p class="tp-hint">按目标卖出价格测算，未计交易佣金与印花税等税费，不构成交易建议。</p>
+      </div>
+    </section>
+
+    <!-- 本次分红与持仓联动 -->
+    <section class="detail-section" id="hdDividendSection">
+      <div class="section-title-bar">
+        <h3>💰 本次分红预计</h3>
+        <span class="sec-badge" id="hdDivBadge">分红测算</span>
+      </div>
+      <div class="div-radar-card">
+        <div class="div-main-row">
+          <div class="div-amount-box">
+            <span class="div-lab">预计到账现金分红</span>
+            <b class="div-val text-purple" id="hdExpDividend">—</b>
+          </div>
+          <div class="div-yield-box">
+            <div class="y-row"><span>成本股息率</span><b id="hdCostYield">—</b></div>
+            <div class="y-row"><span>当前股息率</span><b id="hdCurYield">—</b></div>
+          </div>
+        </div>
+        <div class="div-dates-grid">
+          <div class="d-item">
+            <span class="d-lab">本次每股分红</span>
+            <b class="d-val" id="hdPerShare">—</b>
+          </div>
+          <div class="d-item">
+            <span class="d-lab">股权登记日</span>
+            <b class="d-val" id="hdRecordDate">—</b>
+            <span class="d-countdown" id="hdDivCd">—</span>
+          </div>
+          <div class="d-item">
+            <span class="d-lab">红利发放日</span>
+            <b class="d-val" id="hdPayDate">—</b>
+          </div>
+        </div>
+        <p class="div-hint">实际享有分红权益以股权登记日收市后登记在册为准。除权除息后股价会相应调整。</p>
+      </div>
+    </section>
+
+    <!-- 🛠 补仓模拟器 -->
+    <section class="detail-section sim-box">
+      <div class="section-title-bar">
+        <h3>🛠 补仓模拟器</h3>
+        <span class="sec-badge gray">模拟测算</span>
+      </div>
+      <p class="sim-intro">测算如果以更低价格追加投入，持仓均价会降低多少：</p>
+      <div class="row2">
+        <div class="field">
+          <label>模拟补仓价格</label>
+          <input id="simBuyPrice" inputmode="decimal" placeholder="如 18.00">
+        </div>
+        <div class="field">
+          <label>模拟追加金额 (元)</label>
+          <input id="simBuyAmount" inputmode="decimal" placeholder="如 10000">
+        </div>
+      </div>
+      <div class="sim-result-card" id="simBuyResult">
+        <div class="sr-row"><span>预计追加数量</span><b id="sbrAddShares">— 股</b></div>
+        <div class="sr-row"><span>追加后总持仓</span><b id="sbrTotalShares">— 股</b></div>
+        <div class="sr-row"><span>追加后总成本</span><b id="sbrTotalCost">¥—</b></div>
+        <div class="sr-row highlight"><span>追加后平均成本</span><b class="text-buy" id="sbrNewCost">¥—/股</b></div>
+      </div>
+    </section>
+
+    <!-- 🛠 卖出模拟器 -->
+    <section class="detail-section sim-box">
+      <div class="section-title-bar">
+        <h3>🛠 卖出模拟器</h3>
+        <span class="sec-badge gray">模拟测算</span>
+      </div>
+      <p class="sim-intro">测算如果在不同价格卖出，你能获得多少利润：</p>
+      <div class="quick-prices" id="simQuickPrices">
+        <button data-p="25">¥25</button>
+        <button data-p="26">¥26</button>
+        <button data-p="27">¥27</button>
+        <button data-p="28">¥28</button>
+        <button data-p="30">¥30</button>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>模拟卖出价格</label>
+          <input id="simSellPrice" inputmode="decimal" placeholder="如 28.00">
+        </div>
+        <div class="field">
+          <label>模拟卖出数量 (股)</label>
+          <input id="simSellShares" inputmode="numeric" placeholder="如 900">
+        </div>
+      </div>
+      <div class="sim-result-card" id="simSellResult">
+        <div class="sr-row"><span>预计成交金额</span><b id="ssrTotalAmount">¥—</b></div>
+        <div class="sr-row"><span>对应持仓成本</span><b id="ssrCostAmount">¥—</b></div>
+        <div class="sr-row highlight"><span>预计价差利润</span><b class="text-up" id="ssrProfitVal">+¥—</b></div>
+        <div class="sr-row"><span>预计收益率</span><b class="text-up" id="ssrReturnPct">+—%</b></div>
+      </div>
+      <p class="sim-hint">未计交易手续费与税费，仅为理论模拟测算。</p>
+    </section>
+
+    <!-- ⚖️ 理论回本价格与交易费用 -->
+    <section class="detail-section" id="hdBreakevenSection">
+      <div class="section-title-bar">
+        <h3>⚖️ 理论回本价与交易费用</h3>
+        <button class="btn-info" data-explain="breakeven">ⓘ</button>
+      </div>
+      <div class="breakeven-card">
+        <div class="bk-main">
+          <span class="bk-lab">理论盈亏平衡价 (回本价)</span>
+          <b class="bk-val text-primary" id="hdBreakevenPrice">¥—</b>
+        </div>
+        <p class="bk-hint">已结合佣金（万2.5/最低5元）、印花税（万5）及过户费进行税费对冲测算。</p>
+      </div>
+    </section>
+
+    <!-- 📈 情景盈亏测算表 (-30% ~ +30%) -->
+    <section class="detail-section" id="hdScenarioSection">
+      <div class="section-title-bar">
+        <h3>📈 情景盈亏测算</h3>
+        <button class="btn-info" data-explain="scenario">ⓘ</button>
+      </div>
+      <p class="sim-intro">测算当股价发生不同幅度变动时，你的持仓浮动盈亏情况（纯数学测算，非预测）：</p>
+      <div class="scenario-table-wrap">
+        <table class="scenario-table">
+          <thead>
+            <tr><th>情景变动</th><th>对应股价</th><th>持仓市值</th><th>预计盈亏</th><th>收益率</th></tr>
+          </thead>
+          <tbody id="hdScenarioBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 🩺 股票/ETF 风险体检卡 -->
+    <section class="detail-section" id="hdCheckupSection">
+      <div class="section-title-bar">
+        <h3>🩺 风险体检</h3>
+        <span class="sec-badge" id="hdCheckupStatus">客观评估</span>
+      </div>
+      <div class="checkup-grid" id="hdCheckupGrid">
+        <div class="ck-item"><span class="ck-lab">波动程度</span><b class="ck-val" id="ckVol">—</b></div>
+        <div class="ck-item"><span class="ck-lab">年内回撤</span><b class="ck-val" id="ckDd">—</b></div>
+        <div class="ck-item"><span class="ck-lab">持仓集中度</span><b class="ck-val" id="ckConc">—</b></div>
+        <div class="ck-item"><span class="ck-lab">分红稳定性</span><b class="ck-val" id="ckDiv">—</b></div>
+        <div class="ck-item"><span class="ck-lab">大盘表现</span><b class="ck-val" id="ckMarket">—</b></div>
+        <div class="ck-item"><span class="ck-lab">异常波动</span><b class="ck-val" id="ckAnomaly">—</b></div>
+      </div>
+      <p class="checkup-hint">注：体检卡为基于历史客观数据的状态整理，不代表买入或卖出建议。</p>
+    </section>
+
+    <!-- 📊 市场大盘对比 -->
+    <section class="detail-section" id="hdMarketCompareSection">
+      <div class="section-title-bar">
+        <h3>📊 市场对比</h3>
+        <button class="btn-info" data-explain="benchmark">ⓘ</button>
+      </div>
+      <div class="mc-card" id="hdMarketCard">
+        <div class="mc-row mc-head">
+          <span>标的</span><span>今日</span><span>近5日</span><span>近20日</span><span>26至今</span>
+        </div>
+        <div class="mc-row mc-target" id="mcRowTarget">
+          <span class="mc-name" id="mcTargetName">博威合金</span>
+          <b id="mcTargetToday">—</b><b id="mcTargetR5d">—</b><b id="mcTargetR20d">—</b><b id="mcTargetYtd">—</b>
+        </div>
+        <div class="mc-row mc-bench" id="mcRowHs300">
+          <span class="mc-name">沪深300</span>
+          <b id="mcHs300Today">—</b><b id="mcHs300R5d">—</b><b id="mcHs300R20d">—</b><b id="mcHs300Ytd">—</b>
+        </div>
+        <div class="mc-row mc-bench" id="mcRowSh">
+          <span class="mc-name">上证指数</span>
+          <b id="mcShToday">—</b><b id="mcShR5d">—</b><b id="mcShR20d">—</b><b id="mcShYtd">—</b>
+        </div>
+      </div>
+    </section>
+
+    <!-- 🎯 我的投资计划 & 计划 vs 实际 -->
+    <section class="detail-section" id="hdPlanSection">
+      <div class="section-title-bar">
+        <h3>🎯 我的投资计划</h3>
+        <button class="link-btn-sm" id="hdEditPlanBtn">✏️ 编辑计划</button>
+      </div>
+      <div class="plan-card" id="hdPlanCard">
+        <div class="plan-row"><span>关注理由</span><b id="hdPlanReasons">—</b></div>
+        <div class="plan-row"><span>目标持仓</span><b id="hdPlanTargetQty">— 股</b></div>
+        <div class="plan-row"><span>当前已完成</span><b id="hdPlanProgress">—%</b></div>
+        <div class="plan-row"><span>计划追加金额</span><b id="hdPlanAmount">¥—</b></div>
+        
+        <!-- 计划 vs 实际对比 -->
+        <div class="pvs-box" id="hdPvsBox">
+          <div class="pvs-title">⚖️ 计划 vs 实际复盘</div>
+          <div class="pvs-grid">
+            <div><span>原计划买入</span><b id="pvsPlanBuy">—</b></div>
+            <div><span>实际持仓成本</span><b id="pvsActualCost">—</b></div>
+            <div><span>价格偏离度</span><b id="pvsDeviation">—</b></div>
+          </div>
+        </div>
+
+        <div class="levels-box" id="hdBuyLevelsBox" hidden>
+          <span class="lv-title">分批买入计划</span>
+          <div class="lv-list" id="hdBuyLevelsList"></div>
+        </div>
+        <div class="levels-box" id="hdSellLevelsBox" hidden>
+          <span class="lv-title">分批卖出计划</span>
+          <div class="lv-list" id="hdSellLevelsList"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 🎯 目标价格精确触达历史 (专项功能升级) -->
+    <section class="detail-section" id="hdTouchSection">
+      <div class="section-title-bar">
+        <h3>🎯 目标价格触达历史</h3>
+        <span class="sec-badge" id="hdTouchStatBadge">触达 0 次</span>
+      </div>
+
+      <!-- 最近一次触达高光卡片 -->
+      <div class="touch-highlight-card" id="hdTouchHighlight" hidden>
+        <div class="th-top">
+          <span class="th-badge" id="thBadge">🔴 卖出目标已触达</span>
+          <span class="th-status-chip" id="thStatusChip">已回落</span>
+        </div>
+        <div class="th-grid">
+          <div class="th-item"><span class="lab">用户目标价格</span><b id="thTargetPrice">¥0.00</b></div>
+          <div class="th-item"><span class="lab">实际检测触达价</span><b id="thTriggerPrice">¥0.00</b></div>
+          <div class="th-item"><span class="lab">系统检测时间</span><b id="thDetectedAt">—</b></div>
+          <div class="th-item"><span class="lab">行情源数据时间</span><b id="thMarketTime">—</b></div>
+        </div>
+        <div class="th-post-row" id="thPostRow">
+          <span class="th-post-txt">当前现价 <b id="thCurPrice">¥0.00</b> ｜ 触达后变动 <b class="th-post-ret" id="thPostReturn">0.00%</b></span>
+          <span class="th-profit-txt" id="thProfitTxt" hidden>触达时理论利润 <b class="text-up">+¥0.00</b></span>
+        </div>
+      </div>
+
+      <!-- 触达频次统计看板 -->
+      <div class="touch-stats-bar" id="hdTouchStatsBar">
+        <div class="tsb-item"><span>总触达次数</span><b id="tsbTotal">0</b></div>
+        <div class="tsb-item"><span>卖出触达</span><b id="tsbSell" class="text-sell">0</b></div>
+        <div class="tsb-item"><span>买入触达</span><b id="tsbBuy" class="text-buy">0</b></div>
+        <div class="tsb-item"><span>近30天频率</span><b id="tsb30d">0 次</b></div>
+      </div>
+
+      <!-- 触达筛选器 -->
+      <div class="touch-filter-row">
+        <div class="seg seg-mini" id="touchTypeFilter">
+          <button data-type="all" class="on">全部</button>
+          <button data-type="buy">🟢 买入</button>
+          <button data-type="sell">🔴 卖出</button>
+        </div>
+        <div class="seg seg-mini" id="touchTimeFilter">
+          <button data-range="all" class="on">全部</button>
+          <button data-range="today">今日</button>
+          <button data-range="7d">近7天</button>
+          <button data-range="30d">近30天</button>
+        </div>
+      </div>
+
+      <!-- 触达历史列表 -->
+      <div class="touch-list" id="hdTouchList"></div>
+      <div class="touch-empty" id="hdTouchEmpty" hidden>
+        <p>暂无目标价格触达记录</p>
+        <small>当行情首次越过你的买入价或卖出价时，系统会自动记录精确秒级快照</small>
+      </div>
+
+      <div class="disclaimer-note">
+        <p>⚠️ 价格触达表示监控系统检测到行情达到设定的目标价格，不代表实际成交或投资建议；</p>
+        <p>💡 收到提醒时当前价格可能已发生波动，触达后表现为相对于触达价格的即时变动测算。</p>
+      </div>
+    </section>
+
+    <!-- 📝 投资日记 -->
+    <section class="detail-section" id="hdNotesSection">
+      <div class="section-title-bar">
+        <h3>📝 投资日记</h3>
+        <button class="link-btn-sm" id="hdAddNoteBtn">＋ 写日记</button>
+      </div>
+      <div class="notes-list" id="hdNotesList"></div>
+      <p class="notes-empty" id="hdNotesEmpty" hidden>暂无此标的的投资日记</p>
+    </section>
+
+    <div class="detail-actions">
+      <button class="btn btn-block" id="hdGoWatch">📊 查看监控与行情</button>
+      <button class="btn btn-block" id="hdEdit">✏️ 编辑持仓</button>
+      <button class="btn btn-block btn-outline" id="hdDelete">🗑 删除持仓</button>
+    </div>
+    <div class="detail-actions-note">只做资产记录与模拟测算，禁止且不提供任何交易功能</div>
+  </main>
+
+  <!-- 视图 5：标的监控详情（无 K 线） -->
   <main id="viewDetail" hidden>
     <div class="detail-head">
       <button id="detailBack" class="icon-btn" aria-label="返回">←</button>
@@ -57,6 +556,8 @@
       </div>
       <span class="detail-chip" id="detailChip">—</span>
     </div>
+
+    <!-- 实时行情与横幅 -->
     <section class="detail-quote">
       <div class="detail-price-row">
         <span class="detail-price" id="detailPrice">—</span>
@@ -64,14 +565,154 @@
       </div>
       <div class="detail-banner" id="detailBanner" hidden></div>
     </section>
-    <section class="metric-row">
-      <div class="metric"><b id="metricY2025">—</b><span>2025年至今</span></div>
-      <div class="metric"><b id="metricY2026">—</b><span>2026年至今</span></div>
-      <div class="metric"><b id="metricLast">—</b><span>当前价格</span></div>
+
+    <!-- 核心指标（年度表现 + 年内高低点） -->
+    <section class="metric-matrix">
+      <div class="metric-row">
+        <div class="metric"><b id="metricY2025">—</b><span>2025年至今</span></div>
+        <div class="metric"><b id="metricY2026">—</b><span>2026年至今</span></div>
+        <div class="metric"><b id="metricLast">—</b><span>当前价格</span></div>
+      </div>
+      <div class="metric-row">
+        <div class="metric"><b id="metricYearHigh">—</b><span>2026年最高</span></div>
+        <div class="metric"><b id="metricYearLow">—</b><span>2026年最低</span></div>
+        <div class="metric"><b id="metricDistHigh">—</b><span>距年内高点</span></div>
+      </div>
     </section>
+
+    <!-- 价格目标双卡片（左绿买入、右黄卖出） -->
     <section class="dist-row" id="distRow"></section>
+
+    <!-- 目标价 × 折扣记录 -->
     <section class="target-summary" id="detailTarget" hidden></section>
+
+    <!-- 分红雷达与历史分红专区 -->
+    <section class="detail-section" id="detailDividendSection">
+      <div class="section-title-bar">
+        <h3>💰 分红雷达</h3>
+        <span class="sec-badge" id="divStabilityBadge">数据计算中</span>
+      </div>
+      <div class="div-radar-card" id="divRadarCard">
+        <div class="div-main-row">
+          <div class="div-amount-box">
+            <span class="div-lab">本次每股分红</span>
+            <b class="div-val" id="divPerShare">—</b>
+          </div>
+          <div class="div-yield-box">
+            <div class="y-row"><span>当前股息率</span><b id="divCurrentYield">—</b></div>
+            <div class="y-row"><span id="divBuyYieldLabel">按买入价股息率</span><b id="divBuyYield">—</b></div>
+          </div>
+        </div>
+        <div class="div-dates-grid">
+          <div class="d-item">
+            <span class="d-lab">股权登记日</span>
+            <b class="d-val" id="divRecordDate">—</b>
+            <span class="d-countdown" id="divCountdown">—</span>
+          </div>
+          <div class="d-item">
+            <span class="d-lab">除息日</span>
+            <b class="d-val" id="divExDate">—</b>
+            <span class="d-sub">开盘除权除息</span>
+          </div>
+          <div class="d-item">
+            <span class="d-lab">红利发放日</span>
+            <b class="d-val" id="divPayDate">—</b>
+            <span class="d-sub">现金分红到账</span>
+          </div>
+        </div>
+        <div class="div-stats-row" id="divStatsRow">
+          <div class="ds-item"><span class="ds-num" id="dsConsecutive">—</span><span>连续分红</span></div>
+          <div class="ds-item"><span class="ds-num" id="dsSum3y">—</span><span>近3年累计</span></div>
+          <div class="ds-item"><span class="ds-num" id="dsSum5y">—</span><span>近5年累计</span></div>
+          <div class="ds-item"><span class="ds-num" id="dsYoy">—</span><span>分红同比</span></div>
+        </div>
+        <p class="div-hint">按本次已公布分红测算，股权登记日收市后登记在册可参与本次权益分派。</p>
+      </div>
+
+      <!-- 历史分红表格 -->
+      <div class="hist-div-wrap">
+        <h4 class="sub-sec-title">历年分红记录</h4>
+        <div class="hist-table-wrap">
+          <table class="hist-table">
+            <thead>
+              <tr><th>年度</th><th>每股分红</th><th>股权登记日</th><th>除息日</th><th>发放日</th></tr>
+            </thead>
+            <tbody id="histDivBody"></tbody>
+          </table>
+        </div>
+        <p class="hist-empty" id="histDivEmpty" hidden>暂无历史分红数据</p>
+      </div>
+      <p class="hist-note">分红信息仅供参考，具体权益以上市公司公告及交易所最终披露为准。除权除息后股价会相应调整，获得分红不代表无风险收益。</p>
+    </section>
+
+    <!-- 🎯 目标价格精确触达历史 (专项功能升级) -->
+    <section class="detail-section" id="dtTouchSection">
+      <div class="section-title-bar">
+        <h3>🎯 目标价格触达历史</h3>
+        <span class="sec-badge" id="dtTouchStatBadge">触达 0 次</span>
+      </div>
+
+      <!-- 最近一次触达高光卡片 -->
+      <div class="touch-highlight-card" id="dtTouchHighlight" hidden>
+        <div class="th-top">
+          <span class="th-badge" id="dtThBadge">🔴 卖出目标已触达</span>
+          <span class="th-status-chip" id="dtThStatusChip">已回落</span>
+        </div>
+        <div class="th-grid">
+          <div class="th-item"><span class="lab">用户目标价格</span><b id="dtThTargetPrice">¥0.00</b></div>
+          <div class="th-item"><span class="lab">实际检测触达价</span><b id="dtThTriggerPrice">¥0.00</b></div>
+          <div class="th-item"><span class="lab">系统检测时间</span><b id="dtThDetectedAt">—</b></div>
+          <div class="th-item"><span class="lab">行情源数据时间</span><b id="dtThMarketTime">—</b></div>
+        </div>
+        <div class="th-post-row" id="dtThPostRow">
+          <span class="th-post-txt">当前现价 <b id="dtThCurPrice">¥0.00</b> ｜ 触达后变动 <b class="th-post-ret" id="dtThPostReturn">0.00%</b></span>
+        </div>
+      </div>
+
+      <!-- 触达频次统计看板 -->
+      <div class="touch-stats-bar" id="dtTouchStatsBar">
+        <div class="tsb-item"><span>总触达次数</span><b id="dtTsbTotal">0</b></div>
+        <div class="tsb-item"><span>卖出触达</span><b id="dtTsbSell" class="text-sell">0</b></div>
+        <div class="tsb-item"><span>买入触达</span><b id="dtTsbBuy" class="text-buy">0</b></div>
+        <div class="tsb-item"><span>近30天频率</span><b id="dtTsb30d">0 次</b></div>
+      </div>
+
+      <!-- 触达历史列表 -->
+      <div class="touch-list" id="dtTouchList"></div>
+      <div class="touch-empty" id="dtTouchEmpty" hidden>
+        <p>暂无目标价格触达记录</p>
+        <small>当行情首次越过你的买入价或卖出价时，系统会自动记录精确秒级快照</small>
+      </div>
+
+      <div class="disclaimer-note">
+        <p>⚠️ 价格触达表示监控系统检测到行情达到设定的目标价格，不代表实际成交或投资建议；</p>
+        <p>💡 收到提醒时当前价格可能已发生波动，触达后表现为相对于触达价格的即时变动测算。</p>
+      </div>
+    </section>
+
+    <!-- 历史行情与统计专区 -->
     <section class="hist">
+      <div class="section-title-bar">
+        <h3>📊 历史行情</h3>
+      </div>
+
+      <!-- 历史行情统计卡（近 20 交易日与近期表现） -->
+      <div class="hist-stats-card" id="histStatsCard">
+        <div class="hs-grid">
+          <div class="hs-item"><b id="hsUpDays">—</b><span>近20日上涨</span></div>
+          <div class="hs-item"><b id="hsDownDays">—</b><span>近20日下跌</span></div>
+          <div class="hs-item"><b id="hsFlatDays">—</b><span>近20日持平</span></div>
+          <div class="hs-item"><b id="hsUpProb">—</b><span>上涨概率</span></div>
+          <div class="hs-item"><b id="hsMaxUp" class="up">—</b><span>单日最大涨</span></div>
+          <div class="hs-item"><b id="hsMaxDown" class="down">—</b><span>单日最大跌</span></div>
+        </div>
+        <div class="hs-rec-row">
+          <span class="hs-rec-item">近5日 <b id="hsR5d">—</b></span>
+          <span class="hs-rec-item">近10日 <b id="hsR10d">—</b></span>
+          <span class="hs-rec-item">近20日 <b id="hsR20d">—</b></span>
+        </div>
+      </div>
+
       <div class="seg seg-block" id="histPeriod">
         <button data-period="day" class="on">日</button>
         <button data-period="week">周</button>
@@ -80,12 +721,12 @@
         <button data-period="year">年</button>
       </div>
       <div class="seg seg-block wrap" id="histRange">
-        <button data-range="1m">近1月</button>
+        <button data-range="1m" class="on">近1月</button>
         <button data-range="3m">近3月</button>
         <button data-range="6m">近6月</button>
         <button data-range="26ytd">26至今</button>
         <button data-range="25ytd">25至今</button>
-        <button data-range="all" class="on">全部</button>
+        <button data-range="all">全部</button>
         <button data-range="custom">自定义</button>
       </div>
       <div class="hist-custom" id="histCustom" hidden>
@@ -101,28 +742,30 @@
         </table>
       </div>
       <p class="hist-empty" id="histEmpty" hidden>该区间暂无数据</p>
-      <p class="hist-note">日线为前复权收盘价，仅展示历史行情</p>
+      <p class="hist-note">日线为前复权收盘价，仅展示历史行情，不构成投资建议</p>
     </section>
+
     <div class="detail-actions">
       <button class="btn btn-block" id="detailEdit">✏️ 编辑监控</button>
       <button class="btn btn-block" id="detailToggle">⏸ 暂停监控</button>
       <button class="btn btn-block btn-outline" id="detailDelete">🗑 删除监控</button>
     </div>
-    <div class="detail-actions-note">价格仅监控提醒，不提供任何交易功能</div>
+    <div class="detail-actions-note">价格与分红仅作监控提醒，不提供任何交易功能</div>
   </main>
 
-  <!-- 视图：提醒记录 -->
+  <!-- 视图 6：提醒记录 -->
   <main id="viewAlerts" hidden>
-    <div class="seg seg-block" id="alertFilter">
+    <div class="seg seg-block wrap" id="alertFilter">
       <button data-filter="all" class="on">全部</button>
       <button data-filter="buy">买入提醒</button>
       <button data-filter="sell">卖出提醒</button>
+      <button data-filter="dividend">分红提醒</button>
     </div>
     <div id="alertList" class="alert-list"></div>
     <div id="alertEmpty" class="empty" hidden>
       <div class="empty-icon">🔔</div>
       <p class="empty-title">暂无提醒记录</p>
-      <p class="empty-sub">当价格穿越你设置的价格线，<br>提醒会出现在这里</p>
+      <p class="empty-sub">当价格穿越价格线或分红临近时，<br>提醒会出现在这里</p>
     </div>
     <button id="loadMoreBtn" class="btn btn-block" hidden>加载更多</button>
   </main>
@@ -130,18 +773,23 @@
   <!-- 底部状态栏 -->
   <footer class="status-bar" id="statusBar">行情状态：—</footer>
 
-  <!-- 底部导航 -->
+  <!-- 底部导航（四 Tab） -->
   <nav class="tabbar">
     <button class="tab on" data-view="watches"><span class="tab-icon">📊</span><span>监控</span></button>
-    <button class="tab" data-view="alerts"><span class="tab-icon">🔔</span><span>提醒记录</span></button>
+    <button class="tab" data-view="portfolio"><span class="tab-icon">💼</span><span>资产</span></button>
+    <button class="tab" data-view="dividends"><span class="tab-icon">💰</span><span>分红</span></button>
+    <button class="tab" data-view="alerts"><span class="tab-icon">🔔</span><span>提醒</span></button>
   </nav>
 
-  <!-- 添加浮动按钮 -->
-  <button class="fab" data-open-add aria-label="添加监控"><span class="fab-plus">＋</span><span class="fab-text">添加监控</span></button>
-  <!-- 批量导入浮动按钮 -->
-  <button class="fab fab-secondary" data-open-import aria-label="批量导入"><span class="fab-plus">⇪</span><span class="fab-text">批量导入</span></button>
+  <!-- 监控添加浮动按钮 -->
+  <button class="fab" id="fabAddWatch" data-open-add aria-label="添加监控"><span class="fab-plus">＋</span><span class="fab-text">添加监控</span></button>
+  <button class="fab fab-secondary" id="fabImportWatch" data-open-import aria-label="批量导入监控"><span class="fab-plus">⇪</span><span class="fab-text">导入监控</span></button>
 
-  <!-- 添加/编辑弹窗 -->
+  <!-- 资产持仓浮动按钮（仅在资产视图显示） -->
+  <button class="fab" id="fabAddHolding" data-open-add-holding aria-label="添加持仓" hidden><span class="fab-plus">＋</span><span class="fab-text">添加持仓</span></button>
+  <button class="fab fab-secondary" id="fabImportHolding" data-open-import-holding aria-label="批量导入持仓" hidden><span class="fab-plus">⇪</span><span class="fab-text">导入持仓</span></button>
+
+  <!-- 弹窗 1：添加/编辑监控 -->
   <div class="modal" id="formModal" hidden>
     <div class="sheet">
       <div class="sheet-head">
@@ -197,7 +845,7 @@
             <input id="fSellD" inputmode="decimal" placeholder="如 105" autocomplete="off">
           </div>
         </div>
-        <p class="hint">输入目标价与折扣自动换算价格行（例：20 × 90% → 买入 18.00；同比例卖出）；直接修改上方价格行可手动调整</p>
+        <p class="hint">输入目标价与折扣自动换算价格行</p>
       </div>
 
       <div class="field switch-row">
@@ -214,14 +862,230 @@
     </div>
   </div>
 
+  <!-- 弹窗 2：添加/编辑持仓 -->
+  <div class="modal" id="holdingModal" hidden>
+    <div class="sheet">
+      <div class="sheet-head">
+        <h2 id="holdingFormTitle">添加持仓</h2>
+        <button class="icon-btn" data-close-holding aria-label="关闭">✕</button>
+      </div>
+
+      <div class="field">
+        <label>类型</label>
+        <div class="seg" id="hTypeSeg">
+          <button type="button" data-type="stock" class="on">股票</button>
+          <button type="button" data-type="etf">ETF</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label id="hCodeLabel">股票代码</label>
+        <input id="hCode" inputmode="numeric" maxlength="6" placeholder="6 位数字，如 601137" autocomplete="off">
+        <p class="hint" id="hPricePreview"></p>
+      </div>
+
+      <div class="field">
+        <label id="hNameLabel">股票名称</label>
+        <input id="hName" maxlength="30" placeholder="如 博威合金" autocomplete="off">
+      </div>
+
+      <!-- 录入模式切换：按数量 vs 按投入金额 -->
+      <div class="field">
+        <label>录入模式</label>
+        <div class="seg" id="hModeSeg">
+          <button type="button" data-mode="qty" class="on">按持仓数量</button>
+          <button type="button" data-mode="amount">按投入金额</button>
+        </div>
+      </div>
+
+      <div class="row2" id="hModeQtyBox">
+        <div class="field">
+          <label>持仓数量 (股/份)</label>
+          <input id="hQuantity" inputmode="numeric" placeholder="如 900" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>持仓成本价 (元)</label>
+          <input id="hCostPrice" inputmode="decimal" placeholder="如 19.80" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="row2" id="hModeAmountBox" hidden>
+        <div class="field">
+          <label>总投入金额 (元)</label>
+          <input id="hInvestedAmount" inputmode="decimal" placeholder="如 20000" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>买入成本价 (元)</label>
+          <input id="hAmountCostPrice" inputmode="decimal" placeholder="如 20.00" autocomplete="off">
+        </div>
+      </div>
+      <p class="hint" id="hCalcHint"></p>
+
+      <div class="row2">
+        <div class="field">
+          <label>买入日期 (可选)</label>
+          <input id="hBuyDate" type="date">
+        </div>
+        <div class="field">
+          <label>账户归属</label>
+          <input id="hAccount" placeholder="如 A股账户" value="默认账户">
+        </div>
+      </div>
+
+      <div class="field target-box">
+        <p class="target-title">📋 投资计划（可选）</p>
+        <div class="row2">
+          <div class="field">
+            <label>目标持仓 (股)</label>
+            <input id="hTargetQty" inputmode="numeric" placeholder="如 2000">
+          </div>
+          <div class="field">
+            <label>计划追加金额 (元)</label>
+            <input id="hPlanAmount" inputmode="decimal" placeholder="如 20000">
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>持仓备注</label>
+        <input id="hNote" placeholder="可选备注">
+      </div>
+
+      <p class="form-error" id="hFormError" hidden></p>
+
+      <div class="sheet-actions">
+        <button class="btn btn-danger" id="hDeleteBtn" hidden>删除</button>
+        <button class="btn btn-primary" id="hSaveBtn">保存持仓</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 弹窗 3：修改现金账户 -->
+  <div class="modal" id="cashModal" hidden>
+    <div class="sheet sheet-alert">
+      <h2>💵 修改账户现金</h2>
+      <p class="confirm-text">设置你当前的可用现金余额，用于准确计算总资产与仓位占比。</p>
+      <div class="field">
+        <label>账户现金余额 (元)</label>
+        <input id="fCashBalance" inputmode="decimal" placeholder="如 30000.00" autocomplete="off">
+      </div>
+      <p class="form-error" id="cashError" hidden></p>
+      <div class="sheet-actions sheet-actions-center">
+        <button class="btn" data-close-cash>取消</button>
+        <button class="btn btn-primary" id="saveCashBtn">保存现金</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 弹窗 4：批量导入持仓 -->
+  <div class="modal" id="importHoldingsModal" hidden>
+    <div class="sheet imp-sheet">
+      <div class="sheet-head">
+        <h2 id="impHTitle">批量导入持仓</h2>
+        <button class="icon-btn" data-close-import-h aria-label="关闭">✕</button>
+      </div>
+      <p class="imp-sub">一次导入多个真实持仓，快速建立资产看板</p>
+
+      <!-- 步骤 1 -->
+      <div id="impHStep1">
+        <button class="btn btn-block" id="impHTemplate">⬇︎ 下载持仓导入模板（CSV）</button>
+        <div class="dropzone" id="impHDrop">
+          <input type="file" id="impHFile" accept=".csv,text/csv,application/vnd.ms-excel" hidden>
+          <p class="dz-main">将持仓 CSV 文件拖到这里，或点击选择文件</p>
+          <p class="dz-sub">支持 UTF-8 / 带 BOM 的 CSV；Excel 请「另存为 CSV UTF-8」</p>
+        </div>
+        <div class="imp-divider"><span>或复制粘贴导入</span></div>
+        <textarea id="impHPaste" rows="6" spellcheck="false" placeholder="类型,代码,名称,持仓数量,成本价,买入日期,账户&#10;股票,601137,博威合金,900,19.80,2026-08-01,A股账户&#10;ETF,510300,沪深300ETF,2000,3.80,2026-07-10,A股账户"></textarea>
+        <p class="hint" id="impHHint"></p>
+        <button class="btn btn-primary btn-block" id="impHParse">解析持仓数据</button>
+      </div>
+
+      <!-- 步骤 2：预览 -->
+      <div id="impHStep2" hidden>
+        <div class="imp-stats" id="impHStats"></div>
+        <div class="field">
+          <label>重复持仓处理策略</label>
+          <div class="seg" id="impHDupStrategy">
+            <button type="button" data-v="skip" class="on">跳过重复</button>
+            <button type="button" data-v="update">更新已有记录</button>
+            <button type="button" data-v="overwrite">全部覆盖</button>
+          </div>
+        </div>
+        <div class="imp-table-wrap">
+          <table class="imp-table">
+            <thead><tr><th>状态</th><th>类型</th><th>代码</th><th>名称</th><th>数量</th><th>成本价</th><th>金额</th><th>账户</th><th>说明</th></tr></thead>
+            <tbody id="impHTbody"></tbody>
+          </table>
+        </div>
+        <div class="sheet-actions">
+          <button class="btn" id="impHBack">重新选择</button>
+          <button class="btn btn-primary" id="impHConfirm">确认导入持仓</button>
+        </div>
+      </div>
+
+      <!-- 步骤 3：结果 -->
+      <div id="impHStep3" hidden>
+        <div class="imp-result" id="impHResult"></div>
+        <button class="btn btn-primary btn-block" id="impHDone">查看我的资产</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 弹窗 5：监控批量导入 -->
+  <div class="modal" id="importModal" hidden>
+    <div class="sheet imp-sheet">
+      <div class="sheet-head">
+        <h2 id="impTitle">批量导入监控</h2>
+        <button class="icon-btn" data-close-import aria-label="关闭">✕</button>
+      </div>
+      <p class="imp-sub">一次导入多个股票 / ETF，快速建立监控列表</p>
+      <div id="impStep1">
+        <button class="btn btn-block" id="impTemplate">⬇︎ 下载监控模板（CSV）</button>
+        <div class="dropzone" id="impDrop">
+          <input type="file" id="impFile" accept=".csv,text/csv,application/vnd.ms-excel" hidden>
+          <p class="dz-main">将 CSV 文件拖到这里，或点击选择文件</p>
+        </div>
+        <div class="imp-divider"><span>或复制粘贴导入</span></div>
+        <textarea id="impPaste" rows="6" spellcheck="false" placeholder="类型,代码,名称,买入价格,卖出价格,开启监控&#10;股票,601137,博威合金,18,21,是&#10;ETF,510300,沪深300ETF,3.8,4.2,是"></textarea>
+        <p class="hint" id="impHint"></p>
+        <button class="btn btn-primary btn-block" id="impParse">解析数据</button>
+      </div>
+      <div id="impStep2" hidden>
+        <div class="imp-stats" id="impStats"></div>
+        <div class="field">
+          <label>数据库重复数据处理</label>
+          <div class="seg" id="impDupStrategy">
+            <button type="button" data-v="skip" class="on">跳过重复</button>
+            <button type="button" data-v="update">更新已有记录</button>
+            <button type="button" data-v="overwrite">全部覆盖</button>
+          </div>
+        </div>
+        <div class="imp-table-wrap">
+          <table class="imp-table">
+            <thead><tr><th>状态</th><th>类型</th><th>代码</th><th>名称</th><th>买入价</th><th>卖出价</th><th>监控</th><th>说明</th></tr></thead>
+            <tbody id="impTbody"></tbody>
+          </table>
+        </div>
+        <div class="sheet-actions">
+          <button class="btn" id="impBack">重新选择</button>
+          <button class="btn btn-primary" id="impConfirm">确认导入</button>
+        </div>
+      </div>
+      <div id="impStep3" hidden>
+        <div class="imp-result" id="impResult"></div>
+        <button class="btn btn-primary btn-block" id="impDone">查看监控</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 二次确认弹窗 -->
   <div class="modal" id="confirmModal" hidden>
     <div class="sheet sheet-alert">
-      <h2 id="confirmTitle">确认删除</h2>
+      <h2 id="confirmTitle">确认操作</h2>
       <p class="confirm-text" id="confirmText"></p>
       <div class="sheet-actions sheet-actions-center">
-        <button class="btn" data-close>取消</button>
-        <button class="btn btn-danger" id="confirmOk">删除</button>
+        <button class="btn" data-close-confirm>取消</button>
+        <button class="btn btn-danger" id="confirmOk">确定</button>
       </div>
     </div>
   </div>
@@ -241,64 +1105,147 @@
     </div>
   </div>
 
-  <!-- 批量导入弹窗 -->
-  <div class="modal" id="importModal" hidden>
-    <div class="sheet imp-sheet">
+  <!-- 弹窗 6：写投资日记 -->
+  <div class="modal" id="noteModal" hidden>
+    <div class="sheet">
       <div class="sheet-head">
-        <h2 id="impTitle">批量导入</h2>
-        <button class="icon-btn" data-close-import aria-label="关闭">✕</button>
+        <h2>📝 记录投资日记</h2>
+        <button class="icon-btn" data-close-note aria-label="关闭">✕</button>
       </div>
-      <p class="imp-sub">一次导入多个股票 / ETF，快速建立监控列表</p>
+      <p class="imp-sub" id="noteTargetName">博威合金 (601137)</p>
+      <div class="field">
+        <label>记录日期</label>
+        <input id="noteDate" type="date">
+      </div>
+      <div class="field">
+        <label>当时股价 (元)</label>
+        <input id="notePrice" inputmode="decimal" placeholder="如 21.40">
+      </div>
+      <div class="field">
+        <label>想法与复盘心得</label>
+        <textarea id="noteContent" rows="4" placeholder="记录你当时的思考、观望原因或投资逻辑（纯备忘，不影响持仓）"></textarea>
+      </div>
+      <p class="form-error" id="noteError" hidden></p>
+      <div class="sheet-actions">
+        <button class="btn" data-close-note>取消</button>
+        <button class="btn btn-primary" id="saveNoteBtn">保存日记</button>
+      </div>
+    </div>
+  </div>
 
-      <!-- 第 1 步：选择来源 -->
-      <div id="impStep1">
-        <button class="btn btn-block" id="impTemplate">⬇︎ 下载导入模板（CSV）</button>
-        <div class="dropzone" id="impDrop">
-          <input type="file" id="impFile" accept=".csv,text/csv,application/vnd.ms-excel" hidden>
-          <p class="dz-main">将 CSV 文件拖到这里，或点击选择文件</p>
-          <p class="dz-sub">支持 UTF-8 / 带 BOM 的 CSV；Excel 请先「另存为 CSV UTF-8」</p>
+  <!-- 弹窗 7：编辑投资计划 -->
+  <div class="modal" id="planModal" hidden>
+    <div class="sheet">
+      <div class="sheet-head">
+        <h2>🎯 编辑投资计划</h2>
+        <button class="icon-btn" data-close-plan aria-label="关闭">✕</button>
+      </div>
+      <p class="imp-sub" id="planTargetName">博威合金 (601137)</p>
+
+      <div class="field">
+        <label>关注理由 (可多选)</label>
+        <div class="tag-selector" id="planReasonTags">
+          <button type="button" class="tag-btn" data-tag="长期看好">长期看好</button>
+          <button type="button" class="tag-btn" data-tag="看好分红">看好分红</button>
+          <button type="button" class="tag-btn" data-tag="低估值">低估值</button>
+          <button type="button" class="tag-btn" data-tag="看好行业">看好行业</button>
+          <button type="button" class="tag-btn" data-tag="等待低价">等待低价</button>
+          <button type="button" class="tag-btn" data-tag="ETF配置">ETF配置</button>
         </div>
-        <div class="imp-divider"><span>或复制粘贴导入</span></div>
-        <textarea id="impPaste" rows="6" spellcheck="false" placeholder="类型,代码,名称,买入价格,卖出价格,开启监控&#10;股票,601137,博威合金,18,21,是&#10;ETF,510300,沪深300ETF,3.8,4.2,是"></textarea>
-        <p class="hint" id="impHint"></p>
-        <button class="btn btn-primary btn-block" id="impParse">解析数据</button>
+      </div>
+      <div class="field">
+        <label>自定义关注理由 / 备忘</label>
+        <input id="planCustomReason" placeholder="如 20元以下值得重点关注">
       </div>
 
-      <!-- 第 2 步：导入预览（确认前绝不入库） -->
-      <div id="impStep2" hidden>
-        <div class="imp-stats" id="impStats"></div>
+      <div class="row2">
         <div class="field">
-          <label>数据库重复数据处理</label>
-          <div class="seg" id="impDupStrategy">
-            <button type="button" data-v="skip" class="on">跳过重复</button>
-            <button type="button" data-v="update">更新已有记录</button>
-            <button type="button" data-v="overwrite">全部覆盖</button>
-          </div>
+          <label>目标持仓 (股)</label>
+          <input id="planFldTargetQty" inputmode="numeric" placeholder="如 2000">
         </div>
-        <div class="field" id="impFileDupField" hidden>
-          <label>文件内部重复代码</label>
-          <div class="seg" id="impFileDup">
-            <button type="button" data-v="last" class="on">使用最后一条</button>
-            <button type="button" data-v="first">保留第一条</button>
-          </div>
-        </div>
-        <div class="imp-table-wrap">
-          <table class="imp-table">
-            <thead><tr><th>状态</th><th>类型</th><th>代码</th><th>名称</th><th>买入价</th><th>卖出价</th><th>监控</th><th>说明</th></tr></thead>
-            <tbody id="impTbody"></tbody>
-          </table>
-        </div>
-        <div class="sheet-actions">
-          <button class="btn" id="impBack">重新选择</button>
-          <button class="btn btn-primary" id="impConfirm">确认导入</button>
+        <div class="field">
+          <label>计划投入金额 (元)</label>
+          <input id="planFldPlannedAmt" inputmode="decimal" placeholder="如 30000">
         </div>
       </div>
 
-      <!-- 第 3 步：导入结果 -->
-      <div id="impStep3" hidden>
-        <div class="imp-result" id="impResult"></div>
-        <button class="btn btn-block" id="impErrors" hidden>⬇︎ 下载错误记录</button>
-        <button class="btn btn-primary btn-block" id="impDone">查看监控</button>
+      <div class="field">
+        <div class="sub-head-row">
+          <label>分批买入计划 (档位与金额)</label>
+          <button type="button" class="link-btn-sm" id="btnAddBuyLevel">＋加一档</button>
+        </div>
+        <div class="levels-editor" id="buyLevelsEditor"></div>
+      </div>
+
+      <div class="field">
+        <div class="sub-head-row">
+          <label>分批卖出计划 (目标价与比例)</label>
+          <button type="button" class="link-btn-sm" id="btnAddSellLevel">＋加一档</button>
+        </div>
+        <div class="levels-editor" id="sellLevelsEditor"></div>
+      </div>
+
+      <p class="form-error" id="planError" hidden></p>
+      <div class="sheet-actions">
+        <button class="btn" data-close-plan>取消</button>
+        <button class="btn btn-primary" id="savePlanBtn">保存计划</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 弹窗 8：新手术语通俗解释 (ⓘ) -->
+  <div class="modal" id="explainModal" hidden>
+    <div class="sheet sheet-alert">
+      <h2 id="explainTitle">💡 名词解释</h2>
+      <div class="explain-body" id="explainBody"></div>
+      <div class="sheet-actions sheet-actions-center">
+        <button class="btn btn-primary" data-close-explain>我知道了</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 弹窗 9：偏好与交易费用设置 -->
+  <div class="modal" id="settingsModal" hidden>
+    <div class="sheet">
+      <div class="sheet-head">
+        <h2>⚙️ 系统偏好与费用设置</h2>
+        <button class="icon-btn" data-close-settings aria-label="关闭">✕</button>
+      </div>
+      <p class="imp-sub">设置交易费率用于理论回本价与税费测算，不连接券商</p>
+
+      <div class="field">
+        <label>显示模式</label>
+        <div class="seg" id="modeSeg">
+          <button type="button" data-mode="novice" class="on">🌱 新手模式 (通俗易懂)</button>
+          <button type="button" data-mode="normal">📊 标准模式</button>
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>佣金费率 (如 0.00025 为万2.5)</label>
+          <input id="setCommissionRate" inputmode="decimal" placeholder="0.00025" value="0.00025">
+        </div>
+        <div class="field">
+          <label>最低佣金 (元)</label>
+          <input id="setMinCommission" inputmode="decimal" placeholder="5.0" value="5.0">
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label>股票卖出印花税率</label>
+          <input id="setStampDutyRate" inputmode="decimal" placeholder="0.0005" value="0.0005">
+        </div>
+        <div class="field">
+          <label>过户费率</label>
+          <input id="setTransferFeeRate" inputmode="decimal" placeholder="0.00001" value="0.00001">
+        </div>
+      </div>
+
+      <div class="sheet-actions">
+        <button class="btn" data-close-settings>取消</button>
+        <button class="btn btn-primary" id="saveSettingsBtn">保存设置</button>
       </div>
     </div>
   </div>
@@ -306,7 +1253,7 @@
   <div id="toast" class="toast" hidden></div>
 </div>
 
-<script src="vendor/cloudbase.js?v=20260831f"></script>
-<script src="js/app.js?v=20260831f"></script>
+<script src="vendor/cloudbase.js?v=20260831touch3"></script>
+<script src="js/app.js?v=20260831touch3"></script>
 </body>
 </html>

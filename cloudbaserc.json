@@ -1,0 +1,229 @@
+{
+  "version": "2.0",
+  "envId": "REDACTED_CLOUDBASE_ENV_ID",
+  "$schema": "https://static.cloudbase.net/cli/cloudbaserc.schema.json",
+  "functionRoot": "cloudfunctions",
+  "functions": [
+    {
+      "name": "ths-get-portfolio",
+      "timeout": 15,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "THS_API_KEY": "REDACTED_THS_API_KEY"
+      }
+    },
+    {
+      "name": "ths-create-holding",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "THS_API_KEY": "REDACTED_THS_API_KEY"
+      }
+    },
+    {
+      "name": "ths-update-holding",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true
+    },
+    {
+      "name": "ths-delete-holding",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true
+    },
+    {
+      "name": "ths-update-account",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true
+    },
+    {
+      "name": "ths-import-holdings",
+      "timeout": 20,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "THS_API_KEY": "REDACTED_THS_API_KEY"
+      }
+    },
+    {
+      "name": "ths-get-dividends",
+      "timeout": 15,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "THS_API_KEY": "REDACTED_THS_API_KEY"
+      }
+    },
+    {
+      "name": "ths-get-watches",
+      "timeout": 15,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "THS_API_KEY": "REDACTED_THS_API_KEY"
+      }
+    },
+    {
+      "name": "ths-get-alerts",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true
+    },
+    {
+      "name": "ths-get-history",
+      "timeout": 15,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "THS_API_KEY": "REDACTED_THS_API_KEY"
+      }
+    },
+    {
+      "name": "ths-check-market",
+      "timeout": 30,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "THS_API_KEY": "REDACTED_THS_API_KEY"
+      },
+      "triggers": [
+        {
+          "name": "ths-timer-10s",
+          "type": "timer",
+          "config": "*/10 * * * * * *"
+        }
+      ]
+    },
+    {
+      "name": "ths-create-watch",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "THS_API_KEY": "REDACTED_THS_API_KEY"
+      }
+    },
+    {
+      "name": "ths-update-watch",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "THS_API_KEY": "REDACTED_THS_API_KEY"
+      }
+    },
+    {
+      "name": "ths-delete-watch",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true
+    },
+    {
+      "name": "ths-import-watches",
+      "timeout": 20,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "THS_API_KEY": "REDACTED_THS_API_KEY"
+      }
+    },
+    {
+      "name": "ths-get-market-price",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "THS_API_KEY": "REDACTED_THS_API_KEY"
+      }
+    },
+    {
+      "name": "ths-get-plans",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true
+    },
+    {
+      "name": "ths-update-plan",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true
+    },
+    {
+      "name": "ths-get-notes",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true
+    },
+    {
+      "name": "ths-create-note",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true
+    },
+    {
+      "name": "ths-delete-note",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true
+    },
+    {
+      "name": "ths-get-market-overview",
+      "timeout": 15,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "THS_API_KEY": "REDACTED_THS_API_KEY"
+      }
+    },
+    {
+      "name": "ths-get-ai-summary",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true
+    },
+    {
+      "name": "ths-get-price-touches",
+      "timeout": 15,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true,
+      "envVariables": {
+        "THS_API_KEY": "REDACTED_THS_API_KEY"
+      }
+    },
+    {
+      "name": "ths-ack-price-touch",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "installDependency": true
+    }
+  ]
+}

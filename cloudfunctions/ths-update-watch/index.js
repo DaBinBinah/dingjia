@@ -117,11 +117,13 @@ exports.main = async (event = {}) => {
       if (enabled !== doc.enabled) patch.enabled = enabled;
     }
 
-    // 代码或价格线变化 = 监控目标变化：重置评估基线，并撤销此前达成的「已完成」标记
+    // 代码或价格线变化 = 监控目标变化：重置评估基线，并撤销此前达成的「已完成」标记与触发锁
     if (codeChanged || priceChanged) {
       patch.previousPrice = null;
       patch.buyAchievedAt = null;
       patch.sellAchievedAt = null;
+      if (patch.buyPrice !== undefined) patch.buyTriggered = false;
+      if (patch.sellPrice !== undefined) patch.sellTriggered = false;
     }
 
     if (!Object.keys(patch).length) return { ok: true, id, unchanged: true };

@@ -21,14 +21,6 @@ function beijingParts(nowMs = Date.now()) {
   };
 }
 
-/**
- * 当前交易阶段
- * @param {Object} opts
- * @param {string[]}   opts.holidays    额外节假日列表（YYYY-MM-DD），交易日历接口失败时的兜底
- * @param {Set|null}   opts.tradingDays 交易日历（'YYYYMMDD' 集合）；null 表示日历不可用，退化为星期判断
- * @param {number}     opts.nowMs
- * @returns {'trading'|'lunch-break'|'pre-open'|'closed'|'weekend'|'holiday'}
- */
 function getTradingPhase({ holidays = [], tradingDays = null, nowMs = Date.now() } = {}) {
   const p = beijingParts(nowMs);
   if (Array.isArray(holidays) && holidays.includes(p.dateStr)) return 'holiday';
@@ -46,4 +38,89 @@ function isTradingTime(phase) {
   return phase === 'trading';
 }
 
-module.exports = { CST_OFFSET_MS, beijingParts, getTradingPhase, isTradingTime };
+function isTradingDay(dateVal, tradingDays = null, holidays = []) {
+  let ms;
+  if (typeof dateVal === 'number') {
+    ms = dateVal;
+  } else if (typeof dateVal === 'string') {
+    const s = dateVal.replace(/\D/g, '');
+    if (s.length === 8) {
+      const y = parseInt(s.slice(0, 4), 10);
+      const m = parseInt(s.slice(4, 6), 10) - 1;
+      const d = parseInt(s.slice(6, 8), 10);
+      ms = Date.UTC(y, m, d) - CST_OFFSET_MS;
+    } else {
+      ms = new Date(dateVal).getTime();
+    }
+  } else if (dateVal instanceof Date) {
+    ms = dateVal.getTime();
+  }
+  if (!Number.isFinite(ms)) return false;
+  const p = beijingParts(ms);
+  if (Array.isArray(holidays) && holidays.includes(p.dateStr)) return false;
+  if (p.weekday === 0 || p.weekday === 6) return false;
+  if (tradingDays && tradingDays instanceof Set && tradingDays.size > 0) {
+    return tradingDays.has(p.compactDate);
+  }
+  return true;
+}
+
+function getTradingDaysBetween(fromVal, toVal, tradingDays = null, holidays = []) {
+  const fromP = beijingParts(typeof fromVal === 'number' ? fromVal : new Date(fromVal).getTime());
+  const toP = beijingParts(typeof toVal === 'number' ? toVal : new Date(toVal).getTime());
+  if (fromP.compactDate === toP.compactDate) return 0;
+
+  const fromMs = Date.UTC(fromP.year, fromP.month - 1, fromP.day);
+  const toMs = Date.UTC(toP.year, toP.month - 1, toP.day);
+
+  if (toMs < fromMs) {
+    let count = 0;
+    let cur = fromMs - 86400000;
+    while (cur >= toMs) {
+      if (isTradingDay(cur - CST_OFFSET_MS, tradingDays, holidays)) count++;
+      cur -= 86400000;
+    }
+    return -count;
+  }
+
+  let count = 0;
+  let cur = fromMs + 86400000;
+  while (cur <= toMs) {
+    if (isTradingDay(cur - CST_OFFSET_MS, tradingDays, holidays)) count++;
+    cur += 86400000;
+  }
+  return count;
+}
+
+function getPrevTradingDay(targetVal, tradingDays = null, holidays = []) {
+  const p = beijingParts(typeof targetVal === 'number' ? targetVal : new Date(targetVal).getTime());
+  let curUtc = Date.UTC(p.year, p.month - 1, p.day) - 86400000;
+  for (let i = 0; i < 30; i++) {
+    const curMs = curUtc - CST_OFFSET_MS;
+    if (isTradingDay(curMs, tradingDays, holidays)) {
+      const prevP = beijingParts(curMs);
+      return {
+        ms: curMs,
+        dateStr: prevP.dateStr,
+        compactDate: prevP.compactDate,
+      };
+    }
+    curUtc -= 86400000;
+  }
+  const fallbackP = beijingParts(curUtc - CST_OFFSET_MS);
+  return {
+    ms: curUtc - CST_OFFSET_MS,
+    dateStr: fallbackP.dateStr,
+    compactDate: fallbackP.compactDate,
+  };
+}
+
+module.exports = {
+  CST_OFFSET_MS,
+  beijingParts,
+  getTradingPhase,
+  isTradingTime,
+  isTradingDay,
+  getTradingDaysBetween,
+  getPrevTradingDay,
+};

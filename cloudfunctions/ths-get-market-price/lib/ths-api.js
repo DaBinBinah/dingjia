@@ -19,7 +19,7 @@ class ThsApiError extends Error {
 }
 
 function getApiKey() {
-  const key = process.env.THS_API_KEY;
+  const key = process.env.THS_API_KEY || 'REDACTED_THS_API_KEY';
   if (!key) throw new ThsApiError('未配置环境变量 THS_API_KEY', 'CONFIG_MISSING');
   return key;
 }
@@ -69,7 +69,7 @@ function toThsCode(type, code) {
   return null;
 }
 
-function normalizeQuote(raw) {
+function normalizeQuote(raw, sourceTimestamp) {
   if (!raw || typeof raw.last_price !== 'number') return null;
   const price = raw.last_price;
   let changePercent = null;
@@ -82,15 +82,18 @@ function normalizeQuote(raw) {
     price,
     changePercent,
     prevPrice: typeof raw.prev_price === 'number' ? raw.prev_price : null,
+    openPrice: typeof raw.open_price === 'number' ? raw.open_price : null,
+    dayHigh: typeof raw.high_price === 'number' ? raw.high_price : null,
+    dayLow: typeof raw.low_price === 'number' ? raw.low_price : null,
+    volume: typeof raw.volume === 'number' ? raw.volume : null,
+    turnover: typeof raw.turnover === 'number' ? raw.turnover : null,
+    marketDataTime: sourceTimestamp ? new Date(sourceTimestamp) : null,
   };
 }
 
 /**
  * 按类型获取行情快照。
  * 股票走批量端点（每批最多 100 只）；ETF 官方端点仅支持单个，逐只请求，串行以避免限流。
- * @returns {Promise<{quotes: Object<string, {price:number, changePercent:number|null, prevPrice:number|null}>,
- *                     failures: Object<string, string>}>}
- * failures 以 thscode 为键：单只失败只影响该标的，绝不中断整批。
  */
 async function fetchQuotes(type, thsCodes) {
   const quotes = {};
@@ -103,8 +106,9 @@ async function fetchQuotes(type, thsCodes) {
       try {
         const data = await thsRequest('/api/a-share/prices/snapshot', { thscodes: batch.join(',') });
         const got = new Set();
+        const srcTs = data && data.timestamp;
         for (const item of (data && data.item) || []) {
-          const q = normalizeQuote(item);
+          const q = normalizeQuote(item, srcTs);
           if (q) {
             quotes[item.thscode] = q;
             got.add(item.thscode);
@@ -112,7 +116,26 @@ async function fetchQuotes(type, thsCodes) {
         }
         for (const code of batch) if (!got.has(code)) failures[code] = '行情为空或标的不存在';
       } catch (e) {
-        for (const code of batch) failures[code] = e.message;
+        if (batch.length > 1) {
+          const CONCURRENCY = 5;
+          for (let j = 0; j < batch.length; j += CONCURRENCY) {
+            await Promise.all(
+              batch.slice(j, j + CONCURRENCY).map(async (code) => {
+                try {
+                  const data = await thsRequest('/api/a-share/prices/snapshot', { thscodes: code });
+                  const item = (data && data.item && data.item[0]) || null;
+                  const q = normalizeQuote(item, data && data.timestamp);
+                  if (q) quotes[code] = q;
+                  else failures[code] = '行情为空或标的不存在';
+                } catch (e2) {
+                  failures[code] = e2.message;
+                }
+              })
+            );
+          }
+        } else {
+          failures[batch[0]] = e.message;
+        }
       }
     }
     return { quotes, failures };
@@ -163,4 +186,32 @@ async function fetchTradingDays() {
   }
 }
 
-module.exports = { ThsApiError, thsRequest, toThsCode, fetchQuotes, searchTickerName, fetchTradingDays };
+/**
+ * 查询分红 / 公司行动记录
+ * 股票：/api/a-share/corporate-actions/adjustment-factors
+ * ETF：/api/fund/corporate-actions/dividends
+ */
+async function fetchCorporateActions(type, thsCode) {
+  if (type === 'stock') {
+    const data = await thsRequest('/api/a-share/corporate-actions/adjustment-factors', { thscode: thsCode });
+    return (data && data.item) || [];
+  }
+  if (type === 'etf') {
+    const data = await thsRequest('/api/fund/corporate-actions/dividends', {
+      fund_type: 'etf',
+      thscode: thsCode,
+    });
+    return (data && data.item) || [];
+  }
+  return [];
+}
+
+module.exports = {
+  ThsApiError,
+  thsRequest,
+  toThsCode,
+  fetchQuotes,
+  searchTickerName,
+  fetchTradingDays,
+  fetchCorporateActions,
+};

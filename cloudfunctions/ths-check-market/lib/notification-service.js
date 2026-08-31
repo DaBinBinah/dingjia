@@ -3,7 +3,7 @@
  * 调用链：PriceMonitor(ths-check-market) → AlertService → NotificationService
  *
  * 新增通知渠道（Telegram / 微信 / 邮件 / 企业微信 / Push / Webhook）时，只需实现
- * { name, async send(alert, watch) } 并调用 register()，价格监控与提醒逻辑不需要改动。
+ * { name, async send(alert, watch) } 并调用 register()，价格监控与分红提醒逻辑不需要改动。
  */
 const https = require('https');
 const http = require('http');
@@ -16,18 +16,35 @@ function register(channel) {
   }
 }
 
-// 内置渠道 1：日志（云函数日志中可追溯每一次提醒）
+function formatAlertLabel(alertType) {
+  if (alertType === 'buy') return '买入提醒';
+  if (alertType === 'sell') return '卖出提醒';
+  if (alertType === 'DIVIDEND_10D') return '分红提醒（距股权登记日10个交易日）';
+  if (alertType === 'DIVIDEND_5D') return '分红提醒（距股权登记日5个交易日）';
+  if (alertType === 'DIVIDEND_3D') return '分红临近（距股权登记日3个交易日）';
+  if (alertType === 'DIVIDEND_1D') return '分红重要提醒（明天为股权登记日）';
+  if (alertType === 'DIVIDEND_TODAY') return '分红提醒（今日为股权登记日）';
+  return alertType;
+}
+
+// 内置渠道 1：日志
 register({
   name: 'console',
   async send(alert) {
-    const label = alert.alertType === 'buy' ? '买入提醒' : '卖出提醒';
-    console.log(
-      `[通知:console] ${label} | ${alert.name}(${alert.code}) 现价=${alert.currentPrice} 阈值=${alert.triggerPrice}`
-    );
+    const label = formatAlertLabel(alert.alertType);
+    if (alert.alertType.startsWith('DIVIDEND_')) {
+      console.log(
+        `[通知:console] 💰 ${label} | ${alert.name}(${alert.code}) 每股分红 ¥${alert.dividendPerShare} 登记日=${alert.recordDate} 剩余=${alert.tradingDaysLeft}交易日`
+      );
+    } else {
+      console.log(
+        `[通知:console] 🔔 ${label} | ${alert.name}(${alert.code}) 现价=${alert.currentPrice} 阈值=${alert.triggerPrice}`
+      );
+    }
   },
 });
 
-/** 通用 HTTP POST（返回 Promise，网络异常在 send 内捕获，绝不影响提醒主流程） */
+/** 通用 HTTP POST */
 function postJson(url, payload, headers = {}, timeoutMs = 6000) {
   const lib = url.startsWith('https:') ? https : http;
   return new Promise((resolve, reject) => {
@@ -45,7 +62,7 @@ function postJson(url, payload, headers = {}, timeoutMs = 6000) {
         headers: {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(body),
-          'User-Agent': 'ths-check-market/1.0',
+          'User-Agent': 'ths-check-market/2.0',
           ...headers,
         },
         timeout: timeoutMs,
@@ -67,20 +84,28 @@ function postJson(url, payload, headers = {}, timeoutMs = 6000) {
 }
 
 // 内置渠道 2：Webhook（环境变量 THS_WEBHOOK_URL，可选 THS_WEBHOOK_TOKEN 放 X-Token 头）
-// 可接 Server酱 / PushPlus / Bark / Telegram Bot API 等任意可收 POST 的服务。
 register({
   name: 'webhook',
   async send(alert) {
     const url = (process.env.THS_WEBHOOK_URL || '').trim();
     if (!url) return;
+    const isDividend = typeof alert.alertType === 'string' && alert.alertType.startsWith('DIVIDEND_');
     const payload = {
-      event: 'price_alert',
+      event: isDividend ? 'dividend_alert' : 'price_alert',
       alertType: alert.alertType,
+      alertLabel: formatAlertLabel(alert.alertType),
       name: alert.name,
       code: alert.code,
+      type: alert.type,
       currentPrice: alert.currentPrice,
       triggerPrice: alert.triggerPrice,
+      dividendPerShare: alert.dividendPerShare,
+      recordDate: alert.recordDate,
+      exDividendDate: alert.exDividendDate,
+      paymentDate: alert.paymentDate,
+      tradingDaysLeft: alert.tradingDaysLeft,
       time: alert.createdAt ? new Date(alert.createdAt).toISOString() : null,
+      disclaimer: '分红信息仅供参考，除权除息后股价会相应调整，获得分红不代表无风险收益。',
     };
     const token = (process.env.THS_WEBHOOK_TOKEN || '').trim();
     await postJson(url, payload, token ? { 'X-Token': token } : {});
@@ -88,4 +113,4 @@ register({
   },
 });
 
-module.exports = { register, channels };
+module.exports = { register, channels, formatAlertLabel };
