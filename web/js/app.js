@@ -1718,6 +1718,7 @@ function renderDetail() {
   $('#detailToggle').textContent = w.enabled ? '⏸ 暂停监控' : '▶️ 恢复监控';
   renderDetailTarget(w);
   loadAndRenderTouches(w.code, 'dt');
+  loadDetailFundamentals(w);
 }
 
 function distCardHtml(w, side) {

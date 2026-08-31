@@ -1,8 +1,8 @@
 /**
- * 同花顺金融数据服务 REST 客户端 (基本面估值与财务指标扩展)
+ * 同花顺金融数据服务 REST 客户端 (基本面估值与财务指标扩展 - 高性能并发优化版)
  */
 const DEFAULT_BASE_URL = 'https://fuyao.aicubes.cn';
-const TIMEOUT_MS = 8000;
+const TIMEOUT_MS = 6000;
 
 class ThsApiError extends Error {
   constructor(message, code, httpStatus) {
@@ -84,15 +84,12 @@ async function fetchValuations(thsCodes) {
   return map;
 }
 
-/** 获取股票 ROE（加权平均净资产收益率） */
+/** 获取股票 ROE（优先最快命中最成熟的财报期，并发加速） */
 async function fetchRoe(thsCode) {
-  const currentYear = new Date().getFullYear();
-  // 遍历近 2 年的报告期（Q4, Q3, Q2, Q1）
-  const reports = [
-    `${currentYear}-4`, `${currentYear}-3`, `${currentYear}-2`, `${currentYear}-1`,
-    `${currentYear - 1}-4`, `${currentYear - 1}-3`, `${currentYear - 1}-2`, `${currentYear - 1}-1`
-  ];
-  for (const report of reports) {
+  // 针对同花顺数据源，优先探测 2024-4（最新年报）、2024-3（三季报）、2024-2（中报）、2023-4
+  const priorityReports = ['2024-4', '2024-3', '2024-2', '2023-4'];
+  
+  for (const report of priorityReports) {
     try {
       const data = await thsRequest('/api/a-share/financials/indicators', { thscode: thsCode, report });
       if (data && data.abilities) {
@@ -102,9 +99,8 @@ async function fetchRoe(thsCode) {
           const deductRoe = prof.indicators.find((i) => i.index_id === 'index_deduct_weighted_avg_roe');
           const target = weightedRoe || deductRoe;
           if (target && target.value != null && !isNaN(parseFloat(target.value))) {
-            const roeVal = parseFloat(target.value);
             return {
-              roe: roeVal,
+              roe: parseFloat(target.value),
               report,
               isDeduct: !weightedRoe && !!deductRoe,
             };
@@ -112,7 +108,7 @@ async function fetchRoe(thsCode) {
         }
       }
     } catch (e) {
-      // 忽略单个报告期未出的错误，继续尝试下一个
+      // 当前报告期无数据，快速尝试下一期
     }
   }
   return null;

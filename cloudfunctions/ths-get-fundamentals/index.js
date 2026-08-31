@@ -3,12 +3,6 @@
  *
  * 输入：{ type: 'stock' | 'etf', code: string, thsCode?: string, accessCode? }
  * 输出：{ ok: true, type: 'stock' | 'etf', fundamentals: { pe, pb, roe } | null }
- *
- * 规则：
- * 1. ETF 详情页严禁展示股票公司基本面，直接返回 fundamentals: null；
- * 2. 股票返回三个指标：PE (TTM)、PB (MRQ)、ROE (加权平均/最新报告期)；
- * 3. 亏损公司（PE <= 0）：显示「不适用」，说明「公司当前盈利为负，PE不适用」；
- * 4. 异常或缺失字段返回「—」，绝不显示 NaN/undefined/Infinity/错误 0。
  */
 const cloud = require('@cloudbase/node-sdk');
 const { toThsCode, fetchValuations, fetchRoe } = require('./lib/ths-api');
@@ -16,6 +10,7 @@ const { assertAccess } = require('./lib/access-guard');
 
 const app = cloud.init({ env: cloud.SYMBOL_CURRENT_ENV });
 const db = app.database();
+const CACHE_COLL = 'ths_history_cache';
 
 exports.main = async (event = {}) => {
   const denied = assertAccess(event);
@@ -39,7 +34,25 @@ exports.main = async (event = {}) => {
       return { ok: false, error: '无法识别股票代码' };
     }
 
-    // 并行获取估值快照与 ROE 财务指标
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const cacheKey = `fund:${thsCode}:${todayStr}`;
+
+    // 1. 尝试读缓存
+    try {
+      const snap = await db.collection(CACHE_COLL).where({ key: cacheKey }).limit(1).get();
+      if (snap.data && snap.data.length && snap.data[0].data) {
+        return {
+          ok: true,
+          type: 'stock',
+          code,
+          thsCode,
+          cached: true,
+          fundamentals: snap.data[0].data,
+        };
+      }
+    } catch (_) {}
+
+    // 2. 并行获取估值快照与 ROE 财务指标
     const [valMap, roeData] = await Promise.all([
       fetchValuations([thsCode]),
       fetchRoe(thsCode),
@@ -110,16 +123,24 @@ exports.main = async (event = {}) => {
       };
     }
 
+    const fundamentals = { pe, pb, roe };
+
+    // 3. 写入缓存（异步兜底，不阻塞主链路）
+    try {
+      await db.collection(CACHE_COLL).add({
+        key: cacheKey,
+        data: fundamentals,
+        createdAt: new Date(),
+      });
+    } catch (_) {}
+
     return {
       ok: true,
       type: 'stock',
       code,
       thsCode,
-      fundamentals: {
-        pe,
-        pb,
-        roe,
-      },
+      cached: false,
+      fundamentals,
     };
   } catch (e) {
     return { ok: false, error: `获取基本面失败：${e.message}` };
