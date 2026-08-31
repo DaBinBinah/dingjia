@@ -500,6 +500,26 @@ function renderWatches() {
   if (!watches.length) {
     list.innerHTML = '';
     empty.hidden = false;
+    const et = $('#emptyTitle');
+    const es = $('#emptySub');
+    const btn = empty.querySelector('[data-open-add]');
+    const alt = empty.querySelector('.empty-alt');
+    if (watchFilter === 'done') {
+      if (et) et.textContent = '暂无已达成标的';
+      if (es) es.innerHTML = '当股票或 ETF 价格达到你设定的买入或卖出价时，<br>会在此归档展示';
+      if (btn) btn.hidden = true;
+      if (alt) alt.hidden = true;
+    } else if (watchFilter === 'active') {
+      if (et) et.textContent = '暂无进行中监控';
+      if (es) es.innerHTML = '所有标的已达成或已暂停';
+      if (btn) btn.hidden = false;
+      if (alt) alt.hidden = false;
+    } else {
+      if (et) et.textContent = '还没有监控标的';
+      if (es) es.innerHTML = '添加股票或 ETF，设置价格线，<br>跌破 / 突破时自动提醒你';
+      if (btn) btn.hidden = false;
+      if (alt) alt.hidden = false;
+    }
     return;
   }
   empty.hidden = true;
@@ -1425,6 +1445,24 @@ function renderDividendsView() {
   if (!events.length) {
     container.innerHTML = '';
     empty.hidden = false;
+    const et = empty.querySelector('.empty-title');
+    const es = empty.querySelector('.empty-sub');
+    if (filter === 'upcoming') {
+      if (et) et.textContent = '暂无即将登记的分红';
+      if (es) es.textContent = '近期暂无已公布且在登记日前夕的股票或 ETF 分红方案';
+    } else if (filter === 'thismonth') {
+      if (et) et.textContent = '本月暂无分红事件';
+      if (es) es.textContent = '本月没有安排股权登记或除权除息的标的';
+    } else if (filter === 'passed') {
+      if (et) et.textContent = '暂无已除息事件';
+      if (es) es.textContent = '已完成除权除息的分红记录会归档在此';
+    } else if (filter === 'history') {
+      if (et) et.textContent = '暂无历史年度分红';
+      if (es) es.textContent = '往年历史年度分红明细会在此展示';
+    } else {
+      if (et) et.textContent = '暂无分红事件';
+      if (es) es.textContent = '已公布分红方案的股票 / ETF 会在此汇总';
+    }
     return;
   }
   empty.hidden = true;
@@ -1441,19 +1479,22 @@ function renderDividendsView() {
 
       const yieldInfo = e.dividendYield != null ? `当前股息率 <b>${e.dividendYield.toFixed(2)}%</b>` : '';
       const buyYieldInfo = e.buyDividendYield != null ? ` ｜ 按买入价 <b>${e.buyDividendYield.toFixed(2)}%</b>` : '';
+      const isEtf = e.type === 'etf';
+      const labelUnit = isEtf ? '每份分红' : '每股分红';
+      const unitText = isEtf ? '/份' : '/股';
 
       return `
         <div class="card div-event-card" data-id="${esc(e.watchId)}">
           <div class="card-top">
             <div>
-              <div class="card-name"><span class="nm">${esc(e.name)}</span><span class="card-code">${esc(e.code)}</span></div>
+              <div class="card-name"><span class="nm">${esc(e.name)}</span><span class="card-code">${esc(e.code)} · ${isEtf ? 'ETF' : '股票'}</span></div>
             </div>
             ${cd}
           </div>
           <div class="div-event-body">
             <div class="div-ev-main">
-              <span class="lab">每股分红</span>
-              <b class="val">¥${e.dividendPerShare != null ? e.dividendPerShare.toFixed(2) : '—'}</b>
+              <span class="lab">${labelUnit}</span>
+              <b class="val">¥${e.dividendPerShare != null ? e.dividendPerShare.toFixed(3) : '—'}${unitText}</b>
             </div>
             <div class="div-ev-yields">${yieldInfo}${buyYieldInfo}</div>
           </div>
@@ -2246,6 +2287,22 @@ function renderAlerts() {
     list.innerHTML = '';
     empty.hidden = false;
     more.hidden = true;
+    const filter = state.alertFilter || 'all';
+    const et = empty.querySelector('.empty-title');
+    const es = empty.querySelector('.empty-sub');
+    if (filter === 'dividend') {
+      if (et) et.textContent = '暂无分红提醒记录';
+      if (es) es.innerHTML = '当持仓或监控标的临近股权登记日时，<br>系统会自动发送提醒并记录在此';
+    } else if (filter === 'buy') {
+      if (et) et.textContent = '暂无买入提醒记录';
+      if (es) es.innerHTML = '当标的价格跌至买入目标价时，<br>系统会自动发送提醒并记录在此';
+    } else if (filter === 'sell') {
+      if (et) et.textContent = '暂无卖出提醒记录';
+      if (es) es.innerHTML = '当标的价格涨至卖出目标价时，<br>系统会自动发送提醒并记录在此';
+    } else {
+      if (et) et.textContent = '暂无提醒记录';
+      if (es) es.innerHTML = '当价格穿越价格线或分红临近时，<br>提醒会出现在这里';
+    }
     return;
   }
   empty.hidden = true;
