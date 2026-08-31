@@ -62,6 +62,7 @@ CloudBase 云函数 ×9（Node.js + @cloudbase/node-sdk v3，每函数独立目�
     ├── ths-get-alerts/        # 提醒记录（分页）
     ├── ths-get-market-price/  # 单只实时行情（新增/编辑表单预览）
     ├── ths-get-history/       # 历史日线 + 年度涨跌（YTD）
+    ├── ths-get-fundamentals/  # 🏢 股票基本面（PE/PB/ROE + 云端缓存）
     └── ths-import-watches/     # 批量导入（skip/update/overwrite 三策略）
 ```
 
