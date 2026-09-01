@@ -61,7 +61,7 @@ function toThsCode(type, code) {
   return null;
 }
 
-function normalizeQuote(raw) {
+function normalizeQuote(raw, sourceTimestamp) {
   if (!raw || typeof raw.last_price !== 'number') return null;
   const price = raw.last_price;
   let changePercent = null;
@@ -70,10 +70,25 @@ function normalizeQuote(raw) {
   } else if (typeof raw.prev_price === 'number' && raw.prev_price > 0) {
     changePercent = ((price - raw.prev_price) / raw.prev_price) * 100;
   }
+
+  let change = null;
+  if (typeof raw.price_change === 'number') {
+    change = raw.price_change;
+  } else if (typeof raw.prev_price === 'number') {
+    change = price - raw.prev_price;
+  }
+
   return {
     price,
+    change,
     changePercent,
     prevPrice: typeof raw.prev_price === 'number' ? raw.prev_price : null,
+    openPrice: typeof raw.open_price === 'number' ? raw.open_price : null,
+    dayHigh: typeof raw.high_price === 'number' ? raw.high_price : null,
+    dayLow: typeof raw.low_price === 'number' ? raw.low_price : null,
+    volume: typeof raw.volume === 'number' ? raw.volume : null,
+    turnover: typeof raw.turnover === 'number' ? raw.turnover : null,
+    sourceTimestamp: sourceTimestamp || null,
   };
 }
 
@@ -86,8 +101,9 @@ async function fetchQuotes(type, thsCodes) {
     const batch = thsCodes.slice(i, i + STOCK_BATCH_SIZE);
     try {
       const data = await thsRequest('/api/a-share/prices/snapshot', { thscodes: batch.join(',') });
+      const srcTs = data && data.timestamp;
       for (const item of (data && data.item) || []) {
-        const q = normalizeQuote(item);
+        const q = normalizeQuote(item, srcTs);
         if (q) quotes[item.thscode] = q;
       }
     } catch (e) {

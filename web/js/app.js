@@ -147,6 +147,31 @@ const EXPLAIN_DICT = {
     desc: '现金资产占总投资资产的比例。留有一定现金就像安全气囊，大跌时不慌，有机会时有子弹。',
     guideSec: 'secPortfolio',
   },
+  high52w: {
+    title: '52周最高价 (近一年最高价)',
+    desc: '以今天为基准向前滚动 52 周（364天）范围内的最高实际成交价，每天随时间推移滚动更新。\n\n⚠️ 重点：与「2026年至今」不同，52周是向前滚动一整年，不局限于当年自然年。',
+    guideSec: 'secQuote',
+  },
+  low52w: {
+    title: '52周最低价 (近一年最低价)',
+    desc: '以今天为基准向前滚动 52 周（364天）范围内的最低实际成交价，每天随时间推移滚动更新。\n\n通俗理解：反映标的在过去一年里最便宜时的价格底线。',
+    guideSec: 'secQuote',
+  },
+  w52Range: {
+    title: '近52周价格区间 (滚动近一年)',
+    desc: '52周最高/最低是以今天为基准，向前滚动52周的最高和最低价格，每天都会变化。\n\n区间分位条直观展示当前最新价在过去一年最高价与最低价之间所处的相对位置。',
+    guideSec: 'secQuote',
+  },
+  marketOverview: {
+    title: '今日市场 (四大核心指数)',
+    desc: '反映中国 A 股全市场整体涨跌走势的核心大盘基准：\n• 沪指（上证指数）：反映上海主板全貌\n• 深指（深证成指）：反映深圳市场核心蓝筹\n• 创指（创业板指）：反映高成长与创新企业\n• 科创50：反映科创板硬科技龙头企业',
+    guideSec: 'secQuote',
+  },
+  marketCompare: {
+    title: '我的标的 vs 大盘对比',
+    desc: '客观对比你的股票/ETF今日涨跌幅相对于四大核心大盘指数的强弱差距（百分点），帮助你理解今天是个股独立行情还是跟随大盘波动。',
+    guideSec: 'secQuote',
+  },
 };
 
 /* ---------------- 全局状态 ---------------- */
@@ -372,6 +397,7 @@ async function loadWatches({ silent = false } = {}) {
     renderStats();
     refreshPerf();
     refreshDividends();
+    loadMarketOverview();
     renderWatches();
     renderStatus();
     if (!silent && state.view === 'watches') $('#stats').hidden = false;
@@ -1718,6 +1744,8 @@ function renderDetail() {
   renderDetailTarget(w);
   loadAndRenderTouches(w.code, 'dt');
   loadDetailFundamentals(w);
+  loadMarketOverview();
+  renderDetailMarketCompare(w);
 }
 
 function distCardHtml(w, side) {
@@ -2028,6 +2056,245 @@ function renderMetrics(data) {
   $('#hsR5d').textContent = data && data.r5d != null ? fmtPct(data.r5d) : '—';
   $('#hsR10d').textContent = data && data.r10d != null ? fmtPct(data.r10d) : '—';
   $('#hsR20d').textContent = data && data.r20d != null ? fmtPct(data.r20d) : '—';
+
+  // 52 周滚动极值与位置指示
+  render52wData(data && data.w52, w);
+}
+
+/* ---------------- 📈 近52周价格渲染 ---------------- */
+function render52wData(w52, w) {
+  const sec = $('#detail52wSection');
+  if (!sec) return;
+  if (!w) {
+    sec.hidden = true;
+    return;
+  }
+  sec.hidden = false;
+
+  const type = w.type || 'stock';
+  const highEl = $('#w52High');
+  const lowEl = $('#w52Low');
+  const curEl = $('#w52Cur');
+  const distHighEl = $('#w52DistHigh');
+  const distLowEl = $('#w52DistLow');
+  const curHintEl = $('#w52CurHint');
+  const noteEl = $('#w52Note');
+  const barBox = $('#w52BarBox');
+  const barLow = $('#w52BarLow');
+  const barHigh = $('#w52BarHigh');
+  const barPos = $('#w52BarPos');
+  const barFill = $('#w52BarFill');
+  const badgeEl = $('#w52Badge');
+
+  if (!w52 || w52.sufficient === false) {
+    if (badgeEl) badgeEl.textContent = '数据不足52周';
+    if (highEl) highEl.textContent = w52 && w52.high != null ? `¥${fmtPrice(w52.high, type)}` : '—';
+    if (lowEl) lowEl.textContent = w52 && w52.low != null ? `¥${fmtPrice(w52.low, type)}` : '—';
+    if (curEl) curEl.textContent = typeof w.currentPrice === 'number' ? `¥${fmtPrice(w.currentPrice, type)}` : '—';
+    if (distHighEl) { distHighEl.textContent = '数据不足'; distHighEl.className = 'w52-hint'; }
+    if (distLowEl) { distLowEl.textContent = '数据不足'; distLowEl.className = 'w52-hint'; }
+    if (curHintEl) curHintEl.textContent = '当前价格';
+    if (barBox) barBox.hidden = true;
+    if (noteEl) noteEl.textContent = '⚠️ 当前标的上市交易不满52周，历史数据不足以统计完整52周滚动周期。';
+    return;
+  }
+
+  if (badgeEl) badgeEl.textContent = w52.intraday ? '滚动52周 · 含盘中' : '以今天向前滚动52周';
+  if (barBox) barBox.hidden = false;
+
+  // 1. 最高价
+  if (highEl) highEl.textContent = w52.high != null ? `¥${fmtPrice(w52.high, type)}` : '—';
+  if (distHighEl) {
+    if (w52.distHigh != null) {
+      distHighEl.textContent = `距最高 ${fmtPct(w52.distHigh)}`;
+      distHighEl.className = w52.distHigh >= 0 ? 'w52-hint up' : 'w52-hint down';
+    } else {
+      distHighEl.textContent = '距最高 —';
+      distHighEl.className = 'w52-hint';
+    }
+  }
+
+  // 2. 最低价
+  if (lowEl) lowEl.textContent = w52.low != null ? `¥${fmtPrice(w52.low, type)}` : '—';
+  if (distLowEl) {
+    if (w52.distLow != null) {
+      distLowEl.textContent = `距最低 ${fmtPct(w52.distLow)}`;
+      distLowEl.className = w52.distLow >= 0 ? 'w52-hint up' : 'w52-hint down';
+    } else {
+      distLowEl.textContent = '距最低 —';
+      distLowEl.className = 'w52-hint';
+    }
+  }
+
+  // 3. 当前价格
+  const cur = typeof w52.currentPrice === 'number' ? w52.currentPrice : (typeof w.currentPrice === 'number' ? w.currentPrice : null);
+  if (curEl) curEl.textContent = cur != null ? `¥${fmtPrice(cur, type)}` : '—';
+  if (curHintEl) curHintEl.textContent = w52.intraday ? '盘中实时价' : '最新收盘价';
+
+  // 4. 区间位置指示条
+  if (barLow) barLow.textContent = `最低 ¥${fmtPrice(w52.low, type)}`;
+  if (barHigh) barHigh.textContent = `最高 ¥${fmtPrice(w52.high, type)}`;
+  if (cur != null && w52.high != null && w52.low != null && w52.high > w52.low) {
+    const posPct = Math.max(0, Math.min(100, ((cur - w52.low) / (w52.high - w52.low)) * 100));
+    if (barFill) barFill.style.width = `${posPct.toFixed(1)}%`;
+    if (barPos) barPos.textContent = `位于 52 周区间 ${posPct.toFixed(0)}% 分位`;
+  } else {
+    if (barFill) barFill.style.width = '0%';
+    if (barPos) barPos.textContent = '位于 52 周区间 —';
+  }
+
+  if (noteEl) {
+    noteEl.textContent = `统计范围：${w52.startDate || '—'} ～ ${w52.endDate || '今天'}（共 ${w52.tradeDays || 0} 个有效交易日）；以今天为基准向前滚动52周，每天随时间推移更新，与「2026年至今」严格区分。`;
+  }
+}
+
+/* ---------------- 📊 今日市场四大指数 (沪指/深指/创指/科创50) ---------------- */
+let marketOverviewCache = null;
+let marketOverviewCacheTime = 0;
+let marketOverviewInflight = null;
+
+async function loadMarketOverview({ force = false } = {}) {
+  const now = Date.now();
+  if (!force && marketOverviewCache && now - marketOverviewCacheTime < 30000) {
+    renderHomeMarket(marketOverviewCache);
+    renderDetailMarketCompare(findDetailWatch(), marketOverviewCache);
+    return marketOverviewCache;
+  }
+  if (marketOverviewInflight) {
+    try { return await marketOverviewInflight; } catch (_) {}
+  }
+
+  marketOverviewInflight = (async () => {
+    try {
+      const r = await call('ths-get-market-overview');
+      if (r && r.ok) {
+        marketOverviewCache = r;
+        marketOverviewCacheTime = Date.now();
+        renderHomeMarket(r);
+        renderDetailMarketCompare(findDetailWatch(), r);
+        return r;
+      }
+    } catch (e) {
+      console.warn('获取大盘指数失败:', e.message);
+    } finally {
+      marketOverviewInflight = null;
+    }
+    return null;
+  })();
+
+  return marketOverviewInflight;
+}
+
+function renderHomeMarket(data) {
+  const grid = $('#homeMarketGrid');
+  const timeEl = $('#homeMarketTime');
+  if (!grid) return;
+  if (!data || !Array.isArray(data.indices) || !data.indices.length) {
+    grid.innerHTML = '<div class="empty-hint" style="grid-column:1/-1;padding:6px 0;font-size:12px;color:var(--text-3);">正在获取今日大盘指数…</div>';
+    return;
+  }
+
+  const phaseText = PHASE_LABELS[data.phase] || '行情';
+  if (timeEl) timeEl.textContent = `${data.updateTime || '15:00:00'} · ${phaseText}`;
+
+  grid.innerHTML = data.indices
+    .map((idx) => {
+      const isUp = idx.changePercent != null && idx.changePercent > 0.0001;
+      const isDown = idx.changePercent != null && idx.changePercent < -0.0001;
+      const cls = isUp ? 'up' : isDown ? 'down' : 'flat';
+      const pctStr = idx.changePercent != null ? fmtPct(idx.changePercent) : '—';
+      const chgStr = idx.change != null ? (idx.change > 0 ? `+${idx.change.toFixed(2)}` : idx.change.toFixed(2)) : '—';
+      const priceStr = idx.price != null ? idx.price.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+
+      return `
+      <div class="hmc-item">
+        <div class="hmc-item-name" title="${esc(idx.fullName || idx.name)}">${esc(idx.shortName || idx.name)}</div>
+        <div class="hmc-item-price">${priceStr}</div>
+        <div class="hmc-item-change-row ${cls}">
+          <span>${chgStr}</span>
+          <span>${pctStr}</span>
+        </div>
+      </div>`;
+    })
+    .join('');
+}
+
+function renderDetailMarketCompare(w, data) {
+  const sec = $('#detailMarketSection');
+  const grid = $('#detailMarketGrid');
+  const summary = $('#detailMarketSummary');
+  const timeEl = $('#detailMarketTime');
+  if (!sec || !grid) return;
+
+  if (!w) {
+    sec.hidden = true;
+    return;
+  }
+  sec.hidden = false;
+
+  const market = data || marketOverviewCache;
+  if (!market || !Array.isArray(market.indices) || !market.indices.length) {
+    grid.innerHTML = '<div class="empty-hint" style="grid-column:1/-1;padding:6px 0;font-size:12px;color:var(--text-3);">正在获取今日大盘行情…</div>';
+    if (summary) summary.innerHTML = '';
+    return;
+  }
+
+  if (timeEl) timeEl.textContent = `${market.updateTime || '15:00:00'} · ${PHASE_LABELS[market.phase] || '行情'}`;
+
+  grid.innerHTML = market.indices
+    .map((idx) => {
+      const isUp = idx.changePercent != null && idx.changePercent > 0.0001;
+      const isDown = idx.changePercent != null && idx.changePercent < -0.0001;
+      const cls = isUp ? 'up' : isDown ? 'down' : 'flat';
+      const pctStr = idx.changePercent != null ? fmtPct(idx.changePercent) : '—';
+      const priceStr = idx.price != null ? idx.price.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+
+      return `
+      <div class="mcb-item">
+        <div class="mcb-item-name">${esc(idx.shortName || idx.name)}</div>
+        <div class="mcb-item-pct ${cls}">${pctStr}</div>
+        <div style="font-size:10px;color:var(--text-3);font-variant-numeric:tabular-nums;">${priceStr}</div>
+      </div>`;
+    })
+    .join('');
+
+  if (summary) {
+    const myPct = typeof w.changePercent === 'number' ? w.changePercent : null;
+    const myPctStr = myPct != null ? fmtPct(myPct) : '—';
+    const myCls = myPct != null ? (myPct > 0 ? 'up' : myPct < 0 ? 'down' : 'flat') : 'flat';
+
+    const shIdx = market.indices.find((i) => i.code === '000001.SH');
+    const cybIdx = market.indices.find((i) => i.code === '399006.SZ');
+
+    let diffHtml = '';
+    if (myPct != null && shIdx && shIdx.changePercent != null) {
+      const diffSh = myPct - shIdx.changePercent;
+      const diffShTag = diffSh > 0.01 ? `+${diffSh.toFixed(2)}` : diffSh.toFixed(2);
+      const diffCls = diffSh > 0.01 ? 'better' : diffSh < -0.01 ? 'worse' : 'same';
+      diffHtml += `<div class="mcb-summary-row">
+        <span>相对沪指（上证指数）</span>
+        <b class="mcb-diff-tag ${diffCls}">${diffShTag} 个百分点</b>
+      </div>`;
+    }
+
+    if (myPct != null && cybIdx && cybIdx.changePercent != null) {
+      const diffCyb = myPct - cybIdx.changePercent;
+      const diffCybTag = diffCyb > 0.01 ? `+${diffCyb.toFixed(2)}` : diffCyb.toFixed(2);
+      const diffCls = diffCyb > 0.01 ? 'better' : diffCyb < -0.01 ? 'worse' : 'same';
+      diffHtml += `<div class="mcb-summary-row">
+        <span>相对创指（创业板指）</span>
+        <b class="mcb-diff-tag ${diffCls}">${diffCybTag} 个百分点</b>
+      </div>`;
+    }
+
+    summary.innerHTML = `
+      <div class="mcb-summary-row" style="margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px dashed rgba(0,0,0,0.06);">
+        <span><b>${esc(w.name || w.code)}</b> 今日涨跌</span>
+        <b class="mcb-diff-tag ${myCls}" style="font-size:13px;">${myPctStr}</b>
+      </div>
+      ${diffHtml || '<div style="color:var(--text-3);font-size:11px;">今日客观对比数据</div>'}
+    `;
+  }
 }
 
 function periodKey(period, ms) {

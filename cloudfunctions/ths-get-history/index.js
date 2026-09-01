@@ -97,11 +97,16 @@ async function getSeries(type, code, livePrice = null) {
     // 缓存未命中
   }
 
-  if (!raw) {
+    if (!raw) {
     const fetched = await fetchHistoryItems(type, thsCode, START_MS, nowMs);
     raw = fetched
       .filter((it) => typeof it.close_price === 'number')
-      .map((it) => ({ d: it.date_ms, c: round(it.close_price, type === 'etf' ? 3 : 2) }))
+      .map((it) => ({
+        d: it.date_ms,
+        c: round(it.close_price, type === 'etf' ? 3 : 2),
+        h: round(typeof it.high_price === 'number' ? it.high_price : it.close_price, type === 'etf' ? 3 : 2),
+        l: round(typeof it.low_price === 'number' ? it.low_price : it.close_price, type === 'etf' ? 3 : 2),
+      }))
       .sort((a, b) => a.d - b.d);
 
     if (raw.length) {
@@ -125,11 +130,21 @@ async function getSeries(type, code, livePrice = null) {
         continue;
       } else if (typeof livePrice === 'number' && livePrice > 0) {
         // 已收盘：确保与最终收盘价严格对齐
-        items.push({ d: it.d, c: round(livePrice, type === 'etf' ? 3 : 2) });
+        items.push({
+          d: it.d,
+          c: round(livePrice, type === 'etf' ? 3 : 2),
+          h: round(typeof it.h === 'number' ? it.h : livePrice, type === 'etf' ? 3 : 2),
+          l: round(typeof it.l === 'number' ? it.l : livePrice, type === 'etf' ? 3 : 2),
+        });
         continue;
       }
     }
-    items.push(it);
+    items.push({
+      d: it.d,
+      c: it.c,
+      h: typeof it.h === 'number' ? it.h : it.c,
+      l: typeof it.l === 'number' ? it.l : it.c,
+    });
   }
 
   return { thsCode, items, phase, isClosed };
@@ -173,8 +188,114 @@ function calculateIntervalStats(sliceItems) {
   };
 }
 
+/** 计算 52 周滚动极值与距离百分比（以当前时间为基准向前滚动 52 周 = 364 天） */
+function calc52WeeksMetrics(items, { type = 'stock', livePrice = null, intradayHigh = null, intradayLow = null, isClosed = true, nowMs = Date.now() } = {}) {
+  const start52wMs = nowMs - 52 * 7 * 86400 * 1000;
+  const startDateStr = new Date(start52wMs + 8 * 3600000).toISOString().slice(0, 10);
+  const endDateStr = new Date(nowMs + 8 * 3600000).toISOString().slice(0, 10);
+
+  const emptyOut = {
+    high: null,
+    low: null,
+    distHigh: null,
+    distLow: null,
+    currentPrice: typeof livePrice === 'number' ? round(livePrice, type === 'etf' ? 3 : 2) : null,
+    tradeDays: 0,
+    startDate: startDateStr,
+    endDate: endDateStr,
+    sufficient: false,
+    reason: '当前暂无历史行情数据',
+    intraday: !isClosed,
+  };
+
+  if (!items || !items.length) return emptyOut;
+
+  // 1. 过滤 52 周有效历史日K
+  const items52w = items.filter((it) => it.d >= start52wMs);
+  const tradeDays = items52w.length;
+
+  // 2. 数据充足性检查（正常一年 240~245 交易日，若少于 100 天则为上市不满 52 周的新标的）
+  if (tradeDays < 100) {
+    let high = null;
+    let low = null;
+    if (tradeDays > 0) {
+      high = items52w[0].h || items52w[0].c;
+      low = items52w[0].l || items52w[0].c;
+      for (const it of items52w) {
+        const h = it.h || it.c;
+        const l = it.l || it.c;
+        if (h > high) high = h;
+        if (l < low) low = l;
+      }
+    }
+    return {
+      high: high != null ? round(high, type === 'etf' ? 3 : 2) : null,
+      low: low != null ? round(low, type === 'etf' ? 3 : 2) : null,
+      distHigh: null,
+      distLow: null,
+      currentPrice: typeof livePrice === 'number' ? round(livePrice, type === 'etf' ? 3 : 2) : (items.length ? items[items.length - 1].c : null),
+      tradeDays,
+      startDate: startDateStr,
+      endDate: endDateStr,
+      sufficient: false,
+      reason: '当前历史数据不足52周',
+      intraday: !isClosed,
+    };
+  }
+
+  // 3. 统计 52 周最高价与最低价
+  let high = items52w[0].h || items52w[0].c;
+  let low = items52w[0].l || items52w[0].c;
+  for (const it of items52w) {
+    const h = it.h || it.c;
+    const l = it.l || it.c;
+    if (h > high) high = h;
+    if (l < low) low = l;
+  }
+
+  // 4. 若当前处于交易时段（未收盘），合并盘中实时最高价、最低价与最新价
+  if (!isClosed) {
+    if (typeof intradayHigh === 'number' && intradayHigh > high) high = intradayHigh;
+    else if (typeof livePrice === 'number' && livePrice > high) high = livePrice;
+
+    if (typeof intradayLow === 'number' && intradayLow > 0 && intradayLow < low) low = intradayLow;
+    else if (typeof livePrice === 'number' && livePrice > 0 && livePrice < low) low = livePrice;
+  }
+
+  high = round(high, type === 'etf' ? 3 : 2);
+  low = round(low, type === 'etf' ? 3 : 2);
+
+  // 5. 计算当前价格与距离 52 周最高/最低的百分比
+  const cur = typeof livePrice === 'number' && livePrice > 0
+    ? round(livePrice, type === 'etf' ? 3 : 2)
+    : (items.length ? items[items.length - 1].c : null);
+
+  let distHigh = null;
+  let distLow = null;
+  if (cur != null && high != null && high > 0) {
+    distHigh = round(((cur - high) / high) * 100, 2);
+  }
+  if (cur != null && low != null && low > 0) {
+    distLow = round(((cur - low) / low) * 100, 2);
+  }
+
+  return {
+    high,
+    low,
+    distHigh,
+    distLow,
+    currentPrice: cur,
+    tradeDays,
+    startDate: startDateStr,
+    endDate: endDateStr,
+    sufficient: true,
+    reason: null,
+    intraday: !isClosed,
+  };
+}
+
 /** 全面计算年度 YTD、年内高低点、近 5/10/20 日表现及统计 */
-function calcHistoryMetrics(items) {
+function calcHistoryMetrics(items, opts = {}) {
   const out = {
     y2025: null,
     y2026: null,
@@ -189,6 +310,7 @@ function calcHistoryMetrics(items) {
     r20d: null,
     stats20d: null,
     statsAll: null,
+    w52: null,
   };
   if (!items || !items.length) return out;
 
@@ -209,14 +331,16 @@ function calcHistoryMetrics(items) {
   // 2. 2026 年内最高价与最低价
   const items2026 = items.filter((it) => beijingYear(it.d) === 2026);
   if (items2026.length) {
-    let high = items2026[0].c;
-    let low = items2026[0].c;
+    let high = items2026[0].h || items2026[0].c;
+    let low = items2026[0].l || items2026[0].c;
     for (const it of items2026) {
-      if (it.c > high) high = it.c;
-      if (it.c < low) low = it.c;
+      const h = it.h || it.c;
+      const l = it.l || it.c;
+      if (h > high) high = h;
+      if (l < low) low = l;
     }
-    out.yearHigh = round(high, 2);
-    out.yearLow = round(low, 2);
+    out.yearHigh = round(high, (opts && opts.type === 'etf') ? 3 : 2);
+    out.yearLow = round(low, (opts && opts.type === 'etf') ? 3 : 2);
   }
 
   // 3. 近 5 日 / 10 日 / 20 日表现
@@ -238,6 +362,9 @@ function calcHistoryMetrics(items) {
   out.stats20d = calculateIntervalStats(recent20);
   out.statsAll = calculateIntervalStats(items);
 
+  // 5. 近 52 周滚动极值与百分比
+  out.w52 = calc52WeeksMetrics(items, opts);
+
   return out;
 }
 
@@ -251,8 +378,18 @@ exports.main = async (event = {}) => {
       const code = String(event.code || '').trim();
       if (!['stock', 'etf'].includes(type)) return { ok: false, error: '类型必须为 stock 或 etf' };
       const livePrice = typeof event.currentPrice === 'number' ? event.currentPrice : null;
+      const intradayHigh = typeof event.dayHigh === 'number' ? event.dayHigh : null;
+      const intradayLow = typeof event.dayLow === 'number' ? event.dayLow : null;
+
       const { thsCode, items, phase, isClosed } = await getSeries(type, code, livePrice);
-      const metrics = calcHistoryMetrics(items);
+      const metrics = calcHistoryMetrics(items, {
+        type,
+        livePrice,
+        intradayHigh,
+        intradayLow,
+        isClosed,
+      });
+
       return { ok: true, thsCode, items, ...metrics, phase, isClosed, empty: items.length === 0 };
     }
 
@@ -263,8 +400,12 @@ exports.main = async (event = {}) => {
       await Promise.all(
         list.slice(i, i + PERF_CONCURRENCY).map(async (item) => {
           try {
-            const { thsCode, items } = await getSeries(String(item.type || ''), String(item.code || '').trim());
-            perf[thsCode] = calcHistoryMetrics(items);
+            const type = String(item.type || '');
+            const { thsCode, items } = await getSeries(type, String(item.code || '').trim());
+            perf[thsCode] = calcHistoryMetrics(items, {
+              type,
+              livePrice: typeof item.currentPrice === 'number' ? item.currentPrice : null,
+            });
           } catch (e) {
             perf[String(item.code || '')] = { y2025: null, y2026: null, error: e.message };
           }

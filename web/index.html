@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f5f5f7">
 <title>盯价 - 你定价格，我来盯。</title>
-<link rel="stylesheet" href="css/style.css?v=20260901fund10">
+<link rel="stylesheet" href="css/style.css?v=20260901w52v1">
 </head>
 <body>
 
@@ -66,6 +66,21 @@
           <button class="link-btn-sm" id="btnExplainToday">🤖 AI 数据摘要</button>
         </div>
         <p class="summary-text" id="dailySummaryText">数据统计中…</p>
+      </div>
+    </section>
+
+    <!-- 📊 今日市场指数 (首页轻量大盘模块) -->
+    <section class="home-market-card" id="homeMarketOverview">
+      <div class="hmc-header">
+        <div class="hmc-title-group">
+          <span class="sec-dot live"></span>
+          <span class="hmc-title">📊 今日市场</span>
+          <button type="button" class="fund-info-btn" data-explain="marketOverview" aria-label="大盘指数说明">ⓘ</button>
+        </div>
+        <span class="hmc-time" id="homeMarketTime">--:--:--</span>
+      </div>
+      <div class="hmc-grid" id="homeMarketGrid">
+        <!-- 沪指、深指、创指、科创50 由 JS 动态渲染 -->
       </div>
     </section>
 
@@ -699,6 +714,77 @@
       <div class="disclaimer-note">
         <p>⚠️ 价格触达表示监控系统检测到行情达到设定的目标价格，不代表实际成交或投资建议；</p>
         <p>💡 收到提醒时当前价格可能已发生波动，触达后表现为相对于触达价格的即时变动测算。</p>
+      </div>
+    </section>
+
+    <!-- 📈 近52周价格 (以当前为基准滚动52周) -->
+    <section class="detail-section" id="detail52wSection">
+      <div class="section-title-bar">
+        <div class="title-with-info">
+          <h3>📈 近52周价格</h3>
+          <button type="button" class="fund-info-btn" data-explain="w52Range" aria-label="52周价格解释">ⓘ</button>
+        </div>
+        <span class="sec-badge" id="w52Badge">以今天向前滚动52周</span>
+      </div>
+
+      <div class="w52-grid" id="w52Grid">
+        <div class="w52-card">
+          <div class="w52-lab">
+            <span>52周最高价</span>
+            <button type="button" class="fund-info-btn" data-explain="high52w" aria-label="52周最高解释">ⓘ</button>
+          </div>
+          <div class="w52-val" id="w52High">—</div>
+          <div class="w52-hint" id="w52DistHigh">距最高 —</div>
+        </div>
+        <div class="w52-card">
+          <div class="w52-lab">
+            <span>52周最低价</span>
+            <button type="button" class="fund-info-btn" data-explain="low52w" aria-label="52周最低解释">ⓘ</button>
+          </div>
+          <div class="w52-val" id="w52Low">—</div>
+          <div class="w52-hint" id="w52DistLow">距最低 —</div>
+        </div>
+        <div class="w52-card">
+          <div class="w52-lab">
+            <span>当前价格</span>
+          </div>
+          <div class="w52-val" id="w52Cur">—</div>
+          <div class="w52-hint" id="w52CurHint">最新价格</div>
+        </div>
+      </div>
+
+      <!-- 52周区间分位条 -->
+      <div class="w52-bar-box" id="w52BarBox">
+        <div class="w52-bar-labels">
+          <span id="w52BarLow">最低 ¥--</span>
+          <span id="w52BarPos">位于 52 周区间 --% 分位</span>
+          <span id="w52BarHigh">最高 ¥--</span>
+        </div>
+        <div class="w52-bar-track">
+          <div class="w52-bar-fill" id="w52BarFill" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <p class="hist-note" id="w52Note">以今天为基准向前滚动52周的最高与最低实际交易价，每天随时间推移更新；与「2026年至今」严格区分。</p>
+    </section>
+
+    <!-- 📊 今日市场与大盘表现对比 -->
+    <section class="detail-section" id="detailMarketSection">
+      <div class="section-title-bar">
+        <div class="title-with-info">
+          <h3>📊 今日市场对比</h3>
+          <button type="button" class="fund-info-btn" data-explain="marketCompare" aria-label="大盘对比解释">ⓘ</button>
+        </div>
+        <span class="sec-badge" id="detailMarketTime">--:--:--</span>
+      </div>
+
+      <div class="market-compare-box" id="detailMarketCompareBox">
+        <div class="mcb-grid" id="detailMarketGrid">
+          <!-- 四大指数由 JS 渲染 -->
+        </div>
+        <div class="mcb-summary" id="detailMarketSummary">
+          <!-- 我的标的 vs 大盘相对强弱 -->
+        </div>
       </div>
     </section>
 
@@ -1758,7 +1844,7 @@
   <div id="toast" class="toast" hidden></div>
 </div>
 
-<script src="vendor/cloudbase.js?v=20260901fund10"></script>
-<script src="js/app.js?v=20260901fund10"></script>
+<script src="vendor/cloudbase.js?v=20260901w52v1"></script>
+<script src="js/app.js?v=20260901w52v1"></script>
 </body>
 </html>
