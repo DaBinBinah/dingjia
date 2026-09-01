@@ -73,7 +73,10 @@
       "installDependency": true,
       "envVariables": {
         "THS_API_KEY": "REDACTED_THS_API_KEY",
-        "THS_WECHAT_SENDKEY": "SCT127193TMPJZWEZTHAH2TYhcqIHPMdkH"
+        "THS_WECHAT_MP_APPID": "REDACTED_WECHAT_APPID",
+        "THS_WECHAT_MP_SECRET": "REDACTED_WECHAT_SECRET",
+        "THS_WECHAT_MP_TEMPLATE_ID": "REDACTED_TEMPLATE_ID",
+        "THS_WECHAT_MP_OPENID": "REDACTED_WECHAT_OPENID"
       }
     },
     {
@@ -101,7 +104,10 @@
       "installDependency": true,
       "envVariables": {
         "THS_API_KEY": "REDACTED_THS_API_KEY",
-        "THS_WECHAT_SENDKEY": "SCT127193TMPJZWEZTHAH2TYhcqIHPMdkH"
+        "THS_WECHAT_MP_APPID": "REDACTED_WECHAT_APPID",
+        "THS_WECHAT_MP_SECRET": "REDACTED_WECHAT_SECRET",
+        "THS_WECHAT_MP_TEMPLATE_ID": "REDACTED_TEMPLATE_ID",
+        "THS_WECHAT_MP_OPENID": "REDACTED_WECHAT_OPENID"
       },
       "triggers": [
         {

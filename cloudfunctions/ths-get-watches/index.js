@@ -131,15 +131,19 @@ exports.main = async (event = {}) => {
         notify: {
           webhook: !!(process.env.THS_WEBHOOK_URL && process.env.THS_WEBHOOK_URL.trim()),
           wechat: !!(
+            (process.env.THS_WECHAT_MP_APPID && process.env.THS_WECHAT_MP_SECRET && process.env.THS_WECHAT_MP_TEMPLATE_ID) ||
             (process.env.THS_WECHAT_SENDKEY && process.env.THS_WECHAT_SENDKEY.trim()) ||
             (process.env.THS_WECHAT_PUSHPLUS_TOKEN && process.env.THS_WECHAT_PUSHPLUS_TOKEN.trim())
           ),
-          wechatProvider: (process.env.THS_WECHAT_SENDKEY && process.env.THS_WECHAT_SENDKEY.trim())
-            ? 'serverchan'
-            : (process.env.THS_WECHAT_PUSHPLUS_TOKEN && process.env.THS_WECHAT_PUSHPLUS_TOKEN.trim())
-              ? 'pushplus'
-              : null,
+          wechatProvider: (process.env.THS_WECHAT_MP_APPID && process.env.THS_WECHAT_MP_SECRET && process.env.THS_WECHAT_MP_TEMPLATE_ID)
+            ? 'wechat_mp'
+            : (process.env.THS_WECHAT_SENDKEY && process.env.THS_WECHAT_SENDKEY.trim())
+              ? 'serverchan'
+              : (process.env.THS_WECHAT_PUSHPLUS_TOKEN && process.env.THS_WECHAT_PUSHPLUS_TOKEN.trim())
+                ? 'pushplus'
+                : null,
           configured: !!(process.env.THS_WEBHOOK_URL && process.env.THS_WEBHOOK_URL.trim()) ||
+            !!(process.env.THS_WECHAT_MP_APPID && process.env.THS_WECHAT_MP_SECRET && process.env.THS_WECHAT_MP_TEMPLATE_ID) ||
             !!(process.env.THS_WECHAT_SENDKEY && process.env.THS_WECHAT_SENDKEY.trim()) ||
             !!(process.env.THS_WECHAT_PUSHPLUS_TOKEN && process.env.THS_WECHAT_PUSHPLUS_TOKEN.trim()),
         },

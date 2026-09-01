@@ -169,17 +169,21 @@
 
 ## 微信通知（可选）
 
-价格触达时直接推送到个人微信的服务通知（通过 Server酱 或 PushPlus），只需在云函数 `ths-check-market` 和 `ths-get-watches` 环境变量中配置（二选一即可）：
+价格触达时直接推送到个人微信的服务通知，支持 **微信公众平台官方测试号/服务号（推荐·免费永久无限制）** 或第三方聚合平台（Server酱 / PushPlus），只需在云函数 `ths-check-market` 和 `ths-get-watches` 环境变量中配置：
 
 | 环境变量 | 说明 |
 | --- | --- |
-| `THS_WECHAT_SENDKEY` | Server酱 SendKey（https://sctapi.ftqq.com/ 微信扫码获取，免费 5 条/天） |
-| `THS_WECHAT_PUSHPLUS_TOKEN` | PushPlus Token（https://www.pushplus.plus/ 微信扫码获取，免费 200 条/天，需实名） |
+| `THS_WECHAT_MP_APPID` | **【推荐】** 微信公众平台测试号/服务号 appID（终身免费·官方直推） |
+| `THS_WECHAT_MP_SECRET` | **【推荐】** 微信公众平台测试号/服务号 appsecret |
+| `THS_WECHAT_MP_TEMPLATE_ID` | **【推荐】** 消息模板 ID（后台新增测试模板） |
+| `THS_WECHAT_MP_OPENID` | 选填：接收者 OpenID（不填自动拉取关注列表第一位） |
+| `THS_WECHAT_SENDKEY` | 第三方：Server酱 SendKey（https://sctapi.ftqq.com/，免费 5 条/天） |
+| `THS_WECHAT_PUSHPLUS_TOKEN` | 第三方：PushPlus Token（https://www.pushplus.plus/，免费 200 条/天） |
 
-- 两个都配置时优先使用 Server酱（避免重复推送）
+- **优先级**：微信公众号测试号/服务号 > Server酱 > PushPlus（自动避免重复推送）
 - 都不配置时微信渠道静默跳过，不影响其他渠道
-- **仅价格触达提醒推送微信**（分红提醒不推微信）
-- 微信发送失败不影响价格监控和提醒落库
+- **仅价格触达提醒推送微信**（分红提醒不推微信，避免消息骚扰）
+- 微信发送失败不影响价格监控和提醒落库（故障隔离）
 
 ## 列表筛选（全部 / 进行中 / 已达成）
 

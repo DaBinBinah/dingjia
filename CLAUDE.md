@@ -208,8 +208,12 @@ CloudBase 云函数 ×9（Node.js + @cloudbase/node-sdk v3，每函数独立目�
 | `THS_WEBHOOK_TOKEN` | 选 | 附加在请求头 `X-Token`（下发方自校验） |
 | `THS_ACCESS_CODE` | 选 | 站点访问口令；**未设置完全放行**（默认）；设置后非定时调用需传同值 |
 | `THS_API_BASE_URL` | 选 | API 基址（默认 `https://fuyao.aicubes.cn`） |
-| `THS_WECHAT_SENDKEY` | 选 | Server酱 SendKey（微信价格触达推送，优先使用） |
-| `THS_WECHAT_PUSHPLUS_TOKEN` | 选 | PushPlus Token（微信价格触达推送，Server酱未配置时使用） |
+| `THS_WECHAT_MP_APPID` | 选 | 微信公众平台测试号/服务号 appID（官方推荐·免费无限制） |
+| `THS_WECHAT_MP_SECRET` | 选 | 微信公众平台测试号/服务号 appsecret |
+| `THS_WECHAT_MP_TEMPLATE_ID` | 选 | 微信公众平台模板 ID |
+| `THS_WECHAT_MP_OPENID` | 选 | 微信接收者 openID（可选，不填自动拉取关注列表首位） |
+| `THS_WECHAT_SENDKEY` | 选 | Server酱 SendKey（微信价格触达推送，第三方） |
+| `THS_WECHAT_PUSHPLUS_TOKEN` | 选 | PushPlus Token（微信价格触达推送，第三方） |
 
 前端 `web/js/app.js` 内置 `ACCESS_KEY` 为 CloudBase **publishable key**（匿名作用域的公开凭据，设计上可公开，非密钥；请勿误删）。手机端「访问口令」（accessCode）与这个 key 无关。
 
