@@ -1671,7 +1671,6 @@ function openDetail(watch) {
   renderDetail();
   renderHistContent();
   loadDetailDividendData();
-  loadDetailFundamentals(watch);
 }
 
 function renderDetail() {
@@ -1759,6 +1758,7 @@ function renderDetailTarget(w) {
 
 /* ---------------- 详情页分红与历史行情 ---------------- */
 let detailFundCache = {}; // ckey -> fundamentals
+let detailFundInflight = {}; // ckey -> Promise
 
 async function loadDetailFundamentals(w) {
   const fundSec = $('#detailFundamentalsSection');
@@ -1767,18 +1767,6 @@ async function loadDetailFundamentals(w) {
     return;
   }
   if (fundSec) fundSec.hidden = false;
-
-  // 占位初始化
-  $('#fundPeVal').textContent = '—';
-  $('#fundPeVal').className = 'fund-val';
-  $('#fundPeHint').textContent = '正在获取估值…';
-
-  $('#fundPbVal').textContent = '—';
-  $('#fundPbHint').textContent = '正在获取市净率…';
-
-  $('#fundRoeVal').textContent = '—';
-  $('#fundRoeName').textContent = 'ROE';
-  $('#fundRoeHint').textContent = '正在获取报告期…';
 
   const ckey = `fund:${w.code}`;
   if (detailFundCache[ckey]) {
@@ -1793,25 +1781,52 @@ async function loadDetailFundamentals(w) {
     }
   }
 
-  try {
-    const r = await call('ths-get-fundamentals', {
-      type: 'stock',
-      code: w.code,
-      thsCode: w.thsCode,
-    });
-    if (r && r.ok && r.fundamentals) {
-      detailFundCache[ckey] = r.fundamentals;
-      renderFundamentalsData(r.fundamentals);
-    } else {
-      $('#fundPeHint').textContent = '暂无估值数据';
+  // 占位初始化
+  $('#fundPeVal').textContent = '—';
+  $('#fundPeVal').className = 'fund-val';
+  $('#fundPeHint').textContent = '正在获取估值…';
+
+  $('#fundPbVal').textContent = '—';
+  $('#fundPbHint').textContent = '正在获取市净率…';
+
+  $('#fundRoeVal').textContent = '—';
+  $('#fundRoeName').textContent = 'ROE';
+  $('#fundRoeHint').textContent = '正在获取报告期…';
+
+  if (detailFundInflight[ckey]) {
+    try {
+      const cached = await detailFundInflight[ckey];
+      if (cached) renderFundamentalsData(cached);
+    } catch (_) {}
+    return;
+  }
+
+  detailFundInflight[ckey] = (async () => {
+    try {
+      const r = await call('ths-get-fundamentals', {
+        type: 'stock',
+        code: w.code,
+        thsCode: w.thsCode,
+      });
+      if (r && r.ok && r.fundamentals) {
+        detailFundCache[ckey] = r.fundamentals;
+        renderFundamentalsData(r.fundamentals);
+        return r.fundamentals;
+      } else {
+        $('#fundPeHint').textContent = (r && r.error) || '暂无估值数据';
+        $('#fundPbHint').textContent = '暂无市净率数据';
+        $('#fundRoeHint').textContent = '暂无报告期数据';
+        return null;
+      }
+    } catch (e) {
+      $('#fundPeHint').textContent = e.message || '暂无估值数据';
       $('#fundPbHint').textContent = '暂无市净率数据';
       $('#fundRoeHint').textContent = '暂无报告期数据';
+      return null;
+    } finally {
+      delete detailFundInflight[ckey];
     }
-  } catch (e) {
-    $('#fundPeHint').textContent = '暂无估值数据';
-    $('#fundPbHint').textContent = '暂无市净率数据';
-    $('#fundRoeHint').textContent = '暂无报告期数据';
-  }
+  })();
 }
 
 function renderFundamentalsData(fund) {
