@@ -12,6 +12,7 @@ const cloud = require('@cloudbase/node-sdk');
 const { fetchTradingDays, toThsCode } = require('./lib/ths-api');
 const { beijingParts, getTradingPhase } = require('./lib/trading-time');
 const { getDividendData } = require('./lib/dividend-service');
+const { getFundamentals } = require('./lib/fundamental-service');
 const { assertAccess } = require('./lib/access-guard');
 
 const app = cloud.init({ env: cloud.SYMBOL_CURRENT_ENV });
@@ -47,6 +48,17 @@ exports.main = async (event = {}) => {
   const mode = event.mode || 'detail';
 
   try {
+    if (mode === 'fundamentals') {
+      const type = String(event.type || '').trim().toLowerCase();
+      const code = String(event.code || '').trim();
+      if (type === 'etf') return { ok: true, type: 'etf', fundamentals: null };
+      if (type !== 'stock') return { ok: false, error: '只支持股票基本面查询' };
+      const thsCode = event.thsCode || toThsCode('stock', code);
+      if (!thsCode) return { ok: false, error: '无法识别股票代码' };
+      const fundamentals = await getFundamentals(db, thsCode, code);
+      return { ok: true, type: 'stock', code, thsCode, fundamentals };
+    }
+
     if (mode === 'detail') {
       const type = String(event.type || '');
       const code = String(event.code || '').trim();
@@ -54,14 +66,22 @@ exports.main = async (event = {}) => {
       const currentPrice = typeof event.currentPrice === 'number' ? event.currentPrice : null;
       const buyPrice = typeof event.buyPrice === 'number' ? event.buyPrice : null;
 
-      const data = await getDividendData(db, type, code, {
-        currentPrice,
-        buyPrice,
-        tradingDays,
-        holidays,
-      });
+      const thsCode = toThsCode(type, code);
+      const [data, fundamentals] = await Promise.all([
+        getDividendData(db, type, code, {
+          currentPrice,
+          buyPrice,
+          tradingDays,
+          holidays,
+        }),
+        type === 'stock' && thsCode ? getFundamentals(db, thsCode, code).catch(() => null) : null,
+      ]);
 
-      return { ok: true, data };
+      if (data && fundamentals) {
+        data.fundamentals = fundamentals;
+      }
+
+      return { ok: true, data, fundamentals };
     }
 
     if (mode === 'batch') {

@@ -1803,7 +1803,8 @@ async function loadDetailFundamentals(w) {
 
   detailFundInflight[ckey] = (async () => {
     try {
-      const r = await call('ths-get-fundamentals', {
+      const r = await call('ths-get-dividends', {
+        mode: 'fundamentals',
         type: 'stock',
         code: w.code,
         thsCode: w.thsCode,
@@ -1819,7 +1820,7 @@ async function loadDetailFundamentals(w) {
         return null;
       }
     } catch (e) {
-      $('#fundPeHint').textContent = e.message || '暂无估值数据';
+      $('#fundPeHint').textContent = '暂无估值数据';
       $('#fundPbHint').textContent = '暂无市净率数据';
       $('#fundRoeHint').textContent = '暂无报告期数据';
       return null;
@@ -1891,6 +1892,12 @@ async function loadDetailDividendData() {
     if (r && r.ok && r.data) {
       detailDivCache[ckey] = r.data;
       renderDetailDividend(r.data);
+      if (r.fundamentals || (r.data && r.data.fundamentals)) {
+        const fund = r.fundamentals || r.data.fundamentals;
+        const fckey = `fund:${w.code}`;
+        detailFundCache[fckey] = fund;
+        renderFundamentalsData(fund);
+      }
     }
   } catch (e) {}
 }
