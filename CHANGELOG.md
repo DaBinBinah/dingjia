@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.5.0] - 2026-09-01
+
+### Added
+- **📱 微信价格触达通知渠道（Server酱 / PushPlus）**：
+  - 当股票或 ETF 达到用户设置的买入/卖出价格时，自动推送提醒到个人微信（通过微信服务通知）；
+  - 同时支持 Server酱（`THS_WECHAT_SENDKEY`）和 PushPlus（`THS_WECHAT_PUSHPLUS_TOKEN`）两个服务商，只需配置一个；
+  - 兼容 Server酱 SCT / sctp 两种 SendKey 格式；
+  - **仅价格触达推送微信**，分红提醒不推微信，避免消息过多；
+  - 基于现有通知渠道注册表模式（`notification-service.js`）零侵入实现，主监控逻辑完全不动；
+  - 微信发送失败不影响价格监控和提醒落库（故障隔离）。
+- **通知状态返回增强**：`ths-get-watches` 返回 `settings.notify` 新增 `webhook`、`wechat`、`wechatProvider` 独立字段，`configured` 保持向后兼容。
+
+---
+
 ## [4.4.0] - 2026-08-31
 
 ### Added

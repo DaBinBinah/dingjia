@@ -129,8 +129,19 @@ exports.main = async (event = {}) => {
       settings: {
         monitorIntervalSec: Math.max(10, Math.min(3600, Number(settingsDoc.monitorIntervalSec) || 30)),
         notify: {
-          configured: !!(process.env.THS_WEBHOOK_URL && process.env.THS_WEBHOOK_URL.trim()),
-          channel: 'webhook',
+          webhook: !!(process.env.THS_WEBHOOK_URL && process.env.THS_WEBHOOK_URL.trim()),
+          wechat: !!(
+            (process.env.THS_WECHAT_SENDKEY && process.env.THS_WECHAT_SENDKEY.trim()) ||
+            (process.env.THS_WECHAT_PUSHPLUS_TOKEN && process.env.THS_WECHAT_PUSHPLUS_TOKEN.trim())
+          ),
+          wechatProvider: (process.env.THS_WECHAT_SENDKEY && process.env.THS_WECHAT_SENDKEY.trim())
+            ? 'serverchan'
+            : (process.env.THS_WECHAT_PUSHPLUS_TOKEN && process.env.THS_WECHAT_PUSHPLUS_TOKEN.trim())
+              ? 'pushplus'
+              : null,
+          configured: !!(process.env.THS_WEBHOOK_URL && process.env.THS_WEBHOOK_URL.trim()) ||
+            !!(process.env.THS_WECHAT_SENDKEY && process.env.THS_WECHAT_SENDKEY.trim()) ||
+            !!(process.env.THS_WECHAT_PUSHPLUS_TOKEN && process.env.THS_WECHAT_PUSHPLUS_TOKEN.trim()),
         },
       },
       scanState: stateDoc

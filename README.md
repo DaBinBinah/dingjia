@@ -165,7 +165,21 @@
   "currentPrice": 17.95, "triggerPrice": 18, "time": "2026-08-31T06:00:00.000Z" }
 ```
 
-配置后 `ths-get-watches` 返回 `settings.notify = { configured: true, channel: 'webhook' }`，前端可据此展示通知状态；未配置时 `configured: false`，推送步骤静默跳过（不影响提醒落库与页面展示）。
+配置后 `ths-get-watches` 返回 `settings.notify.configured = true`，前端可据此展示通知状态；未配置时 `configured: false`，推送步骤静默跳过（不影响提醒落库与页面展示）。
+
+## 微信通知（可选）
+
+价格触达时直接推送到个人微信的服务通知（通过 Server酱 或 PushPlus），只需在云函数 `ths-check-market` 和 `ths-get-watches` 环境变量中配置（二选一即可）：
+
+| 环境变量 | 说明 |
+| --- | --- |
+| `THS_WECHAT_SENDKEY` | Server酱 SendKey（https://sctapi.ftqq.com/ 微信扫码获取，免费 5 条/天） |
+| `THS_WECHAT_PUSHPLUS_TOKEN` | PushPlus Token（https://www.pushplus.plus/ 微信扫码获取，免费 200 条/天，需实名） |
+
+- 两个都配置时优先使用 Server酱（避免重复推送）
+- 都不配置时微信渠道静默跳过，不影响其他渠道
+- **仅价格触达提醒推送微信**（分红提醒不推微信）
+- 微信发送失败不影响价格监控和提醒落库
 
 ## 列表筛选（全部 / 进行中 / 已达成）
 
