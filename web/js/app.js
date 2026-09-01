@@ -1782,8 +1782,15 @@ async function loadDetailFundamentals(w) {
 
   const ckey = `fund:${w.code}`;
   if (detailFundCache[ckey]) {
-    renderFundamentalsData(detailFundCache[ckey]);
-    return;
+    const cf = detailFundCache[ckey];
+    const hasData =
+      (cf.pe && cf.pe.value != null) ||
+      (cf.pb && cf.pb.value != null) ||
+      (cf.roe && cf.roe.value != null);
+    if (hasData) {
+      renderFundamentalsData(cf);
+      return;
+    }
   }
 
   try {

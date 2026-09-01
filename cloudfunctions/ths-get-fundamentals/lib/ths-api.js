@@ -63,32 +63,38 @@ function toThsCode(type, code) {
   return null;
 }
 
-/** 获取股票估值快照（PE_TTM、PB_MRQ 等） */
+/** 获取股票估值快照（PE_TTM、PB_MRQ 等），失败自动重试一次 */
 async function fetchValuations(thsCodes) {
   const map = {};
   if (!Array.isArray(thsCodes) || !thsCodes.length) return map;
-  try {
-    const data = await thsRequest('/api/a-share/valuations/snapshot', { thscodes: thsCodes.join(',') });
-    for (const item of (data && data.item) || []) {
-      if (item && item.thscode) {
-        map[item.thscode] = {
-          peTtm: typeof item.pe_ttm === 'number' ? item.pe_ttm : null,
-          peMrq: typeof item.pe_mrq === 'number' ? item.pe_mrq : null,
-          pbMrq: typeof item.pb_mrq === 'number' ? item.pb_mrq : null,
-          psTtm: typeof item.ps_ttm === 'number' ? item.ps_ttm : null,
-          pcfTtm: typeof item.pcf_ttm === 'number' ? item.pcf_ttm : null,
-        };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const data = await thsRequest('/api/a-share/valuations/snapshot', { thscodes: thsCodes.join(',') });
+      for (const item of (data && data.item) || []) {
+        if (item && item.thscode) {
+          map[item.thscode] = {
+            peTtm: typeof item.pe_ttm === 'number' ? item.pe_ttm : null,
+            peMrq: typeof item.pe_mrq === 'number' ? item.pe_mrq : null,
+            pbMrq: typeof item.pb_mrq === 'number' ? item.pb_mrq : null,
+            psTtm: typeof item.ps_ttm === 'number' ? item.ps_ttm : null,
+            pcfTtm: typeof item.pcf_ttm === 'number' ? item.pcf_ttm : null,
+          };
+        }
+      }
+      if (Object.keys(map).length > 0) break;
+    } catch (e) {
+      if (attempt === 0) {
+        await new Promise((r) => setTimeout(r, 400));
       }
     }
-  } catch (e) {}
+  }
   return map;
 }
 
-/** 获取股票 ROE（优先最快命中最成熟的财报期，并发加速） */
+/** 获取股票 ROE（优先最快命中最成熟的财报期，遇到限流平滑避让） */
 async function fetchRoe(thsCode) {
-  // 针对同花顺数据源，优先探测 2024-4（最新年报）、2024-3（三季报）、2024-2（中报）、2023-4
   const priorityReports = ['2024-4', '2024-3', '2024-2', '2023-4'];
-  
+
   for (const report of priorityReports) {
     try {
       const data = await thsRequest('/api/a-share/financials/indicators', { thscode: thsCode, report });
@@ -108,7 +114,10 @@ async function fetchRoe(thsCode) {
         }
       }
     } catch (e) {
-      // 当前报告期无数据，快速尝试下一期
+      // 若遇到频率限制，微延迟后再尝试下一报告期
+      if (e.message && e.message.includes('limit')) {
+        await new Promise((r) => setTimeout(r, 350));
+      }
     }
   }
   return null;

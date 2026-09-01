@@ -37,18 +37,26 @@ exports.main = async (event = {}) => {
     const todayStr = new Date().toISOString().slice(0, 10);
     const cacheKey = `fund:${thsCode}:${todayStr}`;
 
-    // 1. 尝试读缓存
+    // 1. 尝试读缓存（严格校验非空，若全为空字段则穿透重新请求）
     try {
       const snap = await db.collection(CACHE_COLL).where({ key: cacheKey }).limit(1).get();
       if (snap.data && snap.data.length && snap.data[0].data) {
-        return {
-          ok: true,
-          type: 'stock',
-          code,
-          thsCode,
-          cached: true,
-          fundamentals: snap.data[0].data,
-        };
+        const cachedFund = snap.data[0].data;
+        const hasValidData =
+          (cachedFund.pe && cachedFund.pe.value != null) ||
+          (cachedFund.pb && cachedFund.pb.value != null) ||
+          (cachedFund.roe && cachedFund.roe.value != null);
+
+        if (hasValidData) {
+          return {
+            ok: true,
+            type: 'stock',
+            code,
+            thsCode,
+            cached: true,
+            fundamentals: cachedFund,
+          };
+        }
       }
     } catch (_) {}
 
@@ -125,14 +133,22 @@ exports.main = async (event = {}) => {
 
     const fundamentals = { pe, pb, roe };
 
-    // 3. 写入缓存（异步兜底，不阻塞主链路）
-    try {
-      await db.collection(CACHE_COLL).add({
-        key: cacheKey,
-        data: fundamentals,
-        createdAt: new Date(),
-      });
-    } catch (_) {}
+    // 3. 写入缓存（仅在存在有效非空指标时才写缓存，防止将偶发限流错误持久化）
+    const hasValidData =
+      (pe && pe.value != null) ||
+      (pb && pb.value != null) ||
+      (roe && roe.value != null);
+
+    if (hasValidData) {
+      try {
+        await db.collection(CACHE_COLL).where({ key: cacheKey }).remove().catch(() => {});
+        await db.collection(CACHE_COLL).add({
+          key: cacheKey,
+          data: fundamentals,
+          createdAt: new Date(),
+        });
+      } catch (_) {}
+    }
 
     return {
       ok: true,
