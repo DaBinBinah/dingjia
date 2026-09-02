@@ -4,7 +4,7 @@
  * 输入：{ accessCode? }
  */
 const cloud = require('@cloudbase/node-sdk');
-const { beijingParts, getTradingPhase, getTradingDaysBetween } = require('./lib/trading-time');
+const { beijingParts, getTradingPhase, getUsTradingPhase, getTradingDaysBetween } = require('./lib/trading-time');
 const { assertAccess } = require('./lib/access-guard');
 
 const app = cloud.init({ env: cloud.SYMBOL_CURRENT_ENV });
@@ -42,35 +42,46 @@ exports.main = async (event = {}) => {
       tradingDays,
       nowMs,
     });
+    const usPhase = getUsTradingPhase ? getUsTradingPhase(nowMs) : 'closed';
 
-    const watches = (watchSnap.data || []).map((w) => ({
-      _id: w._id,
-      type: w.type,
-      code: w.code,
-      thsCode: w.thsCode,
-      name: w.name,
-      buyPrice: w.buyPrice != null ? w.buyPrice : null,
-      sellPrice: w.sellPrice != null ? w.sellPrice : null,
-      targetPrice: w.targetPrice != null ? w.targetPrice : null,
-      buyDiscount: w.buyDiscount != null ? w.buyDiscount : null,
-      sellDiscount: w.sellDiscount != null ? w.sellDiscount : null,
-      enabled: !!w.enabled,
-      currentPrice: typeof w.currentPrice === 'number' ? w.currentPrice : null,
-      previousPrice: typeof w.previousPrice === 'number' ? w.previousPrice : null,
-      changePercent: typeof w.changePercent === 'number' ? w.changePercent : null,
-      buyTriggered: !!w.buyTriggered,
-      sellTriggered: !!w.sellTriggered,
-      buyAchievedAt: w.buyAchievedAt || null,
-      sellAchievedAt: w.sellAchievedAt || null,
-      lastBuyAlertTime: w.lastBuyAlertTime || null,
-      lastSellAlertTime: w.lastSellAlertTime || null,
-      lastDividendAlertType: w.lastDividendAlertType || null,
-      lastDividendAlertTime: w.lastDividendAlertTime || null,
-      quoteError: w.quoteError || null,
-      lastFetchTime: w.lastFetchTime || null,
-      createdAt: w.createdAt || null,
-      updatedAt: w.updatedAt || null,
-    }));
+    const watches = (watchSnap.data || []).map((w) => {
+      const market = w.market || (w.code && /^[A-Z0-9.\-]{1,10}$/.test(w.code) && !/^\d{6}$/.test(w.code) ? 'US' : 'CN');
+      return {
+        _id: w._id,
+        market,
+        securityType: w.securityType || (w.type === 'etf' ? 'ETF' : 'STOCK'),
+        currency: w.currency || (market === 'US' ? 'USD' : 'CNY'),
+        timezone: w.timezone || (market === 'US' ? 'America/New_York' : 'Asia/Shanghai'),
+        dataSource: w.dataSource || (market === 'US' ? 'YAHOO' : 'THS'),
+        type: w.type || (w.securityType === 'ETF' ? 'etf' : 'stock'),
+        code: w.code,
+        thsCode: w.thsCode || w.code,
+        name: w.name,
+        buyPrice: w.buyPrice != null ? w.buyPrice : null,
+        sellPrice: w.sellPrice != null ? w.sellPrice : null,
+        targetPrice: w.targetPrice != null ? w.targetPrice : null,
+        buyDiscount: w.buyDiscount != null ? w.buyDiscount : null,
+        sellDiscount: w.sellDiscount != null ? w.sellDiscount : null,
+        enabled: !!w.enabled,
+        currentPrice: typeof w.currentPrice === 'number' ? w.currentPrice : null,
+        previousPrice: typeof w.previousPrice === 'number' ? w.previousPrice : null,
+        changePercent: typeof w.changePercent === 'number' ? w.changePercent : null,
+        buyTriggered: !!w.buyTriggered,
+        sellTriggered: !!w.sellTriggered,
+        buyAchievedAt: w.buyAchievedAt || null,
+        sellAchievedAt: w.sellAchievedAt || null,
+        lastBuyAlertTime: w.lastBuyAlertTime || null,
+        lastSellAlertTime: w.lastSellAlertTime || null,
+        lastDividendAlertType: w.lastDividendAlertType || null,
+        lastDividendAlertTime: w.lastDividendAlertTime || null,
+        quoteError: w.quoteError || null,
+        lastFetchTime: w.lastFetchTime || null,
+        note: w.note || '',
+        noteUpdatedAt: w.noteUpdatedAt || null,
+        createdAt: w.createdAt || null,
+        updatedAt: w.updatedAt || null,
+      };
+    });
 
     // 今日提醒数（北京日 0 点起）
     const p = beijingParts(nowMs);
@@ -125,6 +136,7 @@ exports.main = async (event = {}) => {
       watches,
       stats,
       phase,
+      usPhase,
       serverTime: nowMs,
       settings: {
         monitorIntervalSec: Math.max(10, Math.min(3600, Number(settingsDoc.monitorIntervalSec) || 30)),

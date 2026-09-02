@@ -6,8 +6,12 @@ const notificationService = require('./notification-service');
 
 /** 构造价格提醒记录（alerts 集合文档） */
 function buildAlert(watch, alertType, currentPrice, now = new Date()) {
+  const isUs = watch.market === 'US';
   return {
     watchId: watch._id,
+    market: isUs ? 'US' : 'CN',
+    currency: isUs ? 'USD' : 'CNY',
+    dataSource: isUs ? 'YAHOO' : 'THS',
     type: watch.type,
     code: watch.code,
     name: watch.name,

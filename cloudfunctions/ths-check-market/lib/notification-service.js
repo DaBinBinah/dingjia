@@ -191,7 +191,9 @@ async function sendViaWechatMp(appId, secret, templateId, openId, alert) {
   const isBuy = alert.alertType === 'buy';
   const action = isBuy ? '买入' : '卖出';
   const color = isBuy ? '#07c160' : '#e53935';
-  const typeLabel = alert.type === 'etf' ? 'ETF' : '股票';
+  const isUs = alert.market === 'US' || alert.currency === 'USD';
+  const typeLabel = alert.type === 'etf' ? (isUs ? '美股ETF' : 'ETF') : (isUs ? '美股' : '股票');
+  const sym = isUs ? '$' : '¥';
   const time = alert.createdAt
     ? new Date(new Date(alert.createdAt).getTime() + 8 * 3600000)
         .toISOString().replace('T', ' ').slice(0, 19)
@@ -205,9 +207,9 @@ async function sendViaWechatMp(appId, secret, templateId, openId, alert) {
       first: { value: `🔔 盯价提醒：${alert.name} 已达到${action}价格！`, color },
       name: { value: `${alert.name} (${typeLabel})`, color: '#1f2329' },
       code: { value: alert.code, color: '#1f2329' },
-      price: { value: `¥${alert.currentPrice}`, color },
-      target: { value: `¥${alert.triggerPrice} (${action}线)`, color: '#1f2329' },
-      time: { value: time, color: '#8f959e' },
+      price: { value: `${sym}${alert.currentPrice}`, color },
+      target: { value: `${sym}${alert.triggerPrice} (${action}线)`, color: '#1f2329' },
+      time: { value: `${time} (北京时间)`, color: '#8f959e' },
       remark: { value: `⚠️ 这是价格触达提醒，不代表系统建议${action}。点击卡片可查看实时监控。`, color: '#8f959e' },
     },
   };
@@ -297,7 +299,7 @@ register({
     // 分红提醒不推微信
     if (typeof alert.alertType === 'string' && alert.alertType.startsWith('DIVIDEND_')) return;
 
-    // 1. 优先检查微信公众平台测试号/服务号
+    // 1. 优先检查微信公众平台测试号/服务号（支持环境变量与系统内置配置兜底）
     const mpAppId = (process.env.THS_WECHAT_MP_APPID || '').trim();
     const mpSecret = (process.env.THS_WECHAT_MP_SECRET || '').trim();
     const mpTemplateId = (process.env.THS_WECHAT_MP_TEMPLATE_ID || '').trim();

@@ -47,6 +47,64 @@ function isTradingTime(phase) {
 }
 
 /**
+ * 获取美东时间（America/New_York，自动包含夏令时 EDT/冬令时 EST 转换）
+ */
+function usNewYorkParts(nowMs = Date.now()) {
+  const d = new Date(nowMs);
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    weekday: 'short',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(d);
+  const map = {};
+  for (const p of parts) map[p.type] = p.value;
+
+  const weekdayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const weekday = weekdayMap[map.weekday] ?? 0;
+  const hour = Number(map.hour) === 24 ? 0 : Number(map.hour);
+  const minute = Number(map.minute);
+  const minutes = hour * 60 + minute;
+
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+    weekday,
+    minutes,
+    dateStr: `${map.year}-${pad(map.month)}-${pad(map.day)}`,
+    compactDate: `${map.year}${pad(map.month)}${pad(map.day)}`,
+  };
+}
+
+/**
+ * 美股当前交易阶段判断
+ * 正常常规交易时间：美东时间 09:30–16:00 (570m–960m)
+ * 盘前交易：04:00–09:30 (240m–570m)
+ * 盘后交易：16:00–20:00 (960m–1200m)
+ */
+function getUsTradingPhase(nowMs = Date.now()) {
+  const p = usNewYorkParts(nowMs);
+  if (p.weekday === 0 || p.weekday === 6) return 'weekend';
+  const m = p.minutes;
+  if (m >= 570 && m < 960) return 'trading'; // 09:30–16:00
+  if (m >= 240 && m < 570) return 'pre-market'; // 04:00–09:30
+  if (m >= 960 && m < 1200) return 'post-market'; // 16:00–20:00
+  return 'closed';
+}
+
+function isUsTradingTime(phase) {
+  // 监控轮询包含常规交易与盘前盘后
+  return phase === 'trading' || phase === 'pre-market' || phase === 'post-market';
+}
+
+/**
  * 判断指定日期是否为交易日
  * @param {number|string|Date} dateVal 毫秒时间戳或 'YYYY-MM-DD' 或 'YYYYMMDD'
  * @param {Set|null} tradingDays 'YYYYMMDD' 集合
@@ -146,6 +204,9 @@ module.exports = {
   beijingParts,
   getTradingPhase,
   isTradingTime,
+  usNewYorkParts,
+  getUsTradingPhase,
+  isUsTradingTime,
   isTradingDay,
   getTradingDaysBetween,
   getPrevTradingDay,

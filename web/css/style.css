@@ -25,6 +25,15 @@ body {
   font-size: 16px;
   line-height: 1.45;
 }
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.88em;
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text);
+  padding: 2px 5px;
+  border-radius: 5px;
+  font-variant-numeric: tabular-nums;
+}
 button { font-family: inherit; border: none; background: none; cursor: pointer; color: inherit; }
 input, textarea { font-family: inherit; }
 
@@ -790,6 +799,61 @@ body.detail-open .root { padding-bottom: calc(32px + env(safe-area-inset-bottom)
 .seg.wrap { flex-wrap: wrap; gap: 4px; }
 .seg.wrap button { flex: 1 0 auto; min-width: 56px; padding: 7px 6px; font-size: 12px; }
 
+/* ---------- 🌍 市场分类切换分段胶囊 ---------- */
+.market-segment {
+  display: flex;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 12px;
+  padding: 3px;
+  gap: 4px;
+  margin: 10px 0 6px;
+}
+.market-pill {
+  flex: 1;
+  padding: 8px 6px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: center;
+  white-space: nowrap;
+}
+.market-pill.on {
+  background: var(--card);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1.5px 5px rgba(0, 0, 0, 0.08);
+}
+
+/* ---------- 🏷️ 轻量市场与类型标签 ---------- */
+.chip-market {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1.5px 6px;
+  border-radius: 5px;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+.chip-market.cn {
+  background: rgba(250, 81, 81, 0.08);
+  color: #d32f2f;
+}
+.chip-market.us {
+  background: rgba(0, 122, 255, 0.08);
+  color: #007aff;
+}
+
+.currency-sym {
+  font-size: 0.85em;
+  font-weight: 600;
+  margin-right: 1px;
+  color: inherit;
+}
+
 
 .modal {
   position: fixed; inset: 0; z-index: 30; background: rgba(0, 0, 0, 0.4);
@@ -1317,6 +1381,12 @@ body.detail-open .root { padding-bottom: calc(32px + env(safe-area-inset-bottom)
   margin-top: 6px;
 }
 .gh-btn-group .btn { flex: 1; font-size: 13px; padding: 9px; }
+.gh-btn-group .btn-outline {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
 
 /* 搜索栏 */
 .guide-search-box {
@@ -1349,6 +1419,7 @@ body.detail-open .root { padding-bottom: calc(32px + env(safe-area-inset-bottom)
 .guide-pills-nav::-webkit-scrollbar { display: none; }
 .guide-pill {
   flex: none;
+  white-space: nowrap;
   font-size: 12px;
   font-weight: 600;
   padding: 6px 12px;
@@ -1479,12 +1550,14 @@ body.detail-open .root { padding-bottom: calc(32px + env(safe-area-inset-bottom)
 /* 表格对比 */
 .guide-table-wrap {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   margin-top: 4px;
   border-radius: 8px;
   border: 1px solid var(--line);
 }
 .guide-table {
   width: 100%;
+  min-width: 340px;
   border-collapse: collapse;
   font-size: 12px;
   background: #ffffff;
@@ -1495,6 +1568,7 @@ body.detail-open .root { padding-bottom: calc(32px + env(safe-area-inset-bottom)
   text-align: left;
 }
 .guide-table th {
+  white-space: nowrap;
   background: rgba(0, 0, 0, 0.03);
   font-weight: 700;
   color: var(--text);
@@ -1535,17 +1609,19 @@ body.detail-open .root { padding-bottom: calc(32px + env(safe-area-inset-bottom)
   align-items: flex-start;
 }
 .gpi-num {
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 800;
   color: #dc2626;
   background: rgba(255, 59, 48, 0.12);
-  width: 20px;
+  min-width: 22px;
   height: 20px;
-  border-radius: 50%;
+  padding: 0 4px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex: none;
+  font-variant-numeric: tabular-nums;
 }
 .gpi-content b {
   display: block;
@@ -1763,19 +1839,36 @@ body.detail-open .root { padding-bottom: calc(32px + env(safe-area-inset-bottom)
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.3px;
 }
+.hmc-market-divider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.05);
+  margin: 12px 0 10px 0;
+}
+.hmc-item-name-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px;
+}
+.hmc-item-sub {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-3, #9ca3af);
+  letter-spacing: -0.2px;
+}
 .hmc-item-change-row {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   font-size: 11px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 .hmc-item-change-row.up {
-  color: var(--red, #ef4444);
+  color: var(--up, #ef4444);
 }
 .hmc-item-change-row.down {
-  color: var(--green, #10b981);
+  color: var(--down, #10b981);
 }
 .hmc-item-change-row.flat {
   color: var(--text-3, #9ca3af);
@@ -1938,3 +2031,398 @@ body.detail-open .root { padding-bottom: calc(32px + env(safe-area-inset-bottom)
 .mcb-diff-tag.same {
   color: var(--text-3, #9ca3af);
 }
+
+/* ==================== 📱 详情页分层手风琴折叠架构 (Apple 风格) ==================== */
+.more-info-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0 12px;
+  padding: 0 4px;
+}
+.mid-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+}
+.mid-text {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3, #9ca3af);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.detail-accordion-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.detail-accordion {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  transition: all 0.2s ease;
+}
+.detail-accordion[open] {
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.04);
+}
+
+.accordion-header {
+  list-style: none;
+  cursor: pointer;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+.accordion-header::-webkit-details-marker {
+  display: none;
+}
+.accordion-header:hover {
+  background: rgba(0, 0, 0, 0.015);
+}
+.accordion-header:active {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.acc-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.acc-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.acc-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.acc-title-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.acc-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text, #111827);
+  letter-spacing: -0.2px;
+}
+.acc-summary {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3, #9ca3af);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.detail-accordion[open] .acc-summary {
+  display: none;
+}
+
+.acc-chevron {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-3, #9ca3af);
+  line-height: 1;
+  flex-shrink: 0;
+  transform: rotate(0deg);
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0 4px;
+}
+.detail-accordion[open] .acc-chevron {
+  transform: rotate(90deg);
+  color: var(--blue, #2563eb);
+}
+
+.accordion-body {
+  padding: 10px 14px 14px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.06);
+  animation: accFadeIn 0.2s ease-out;
+}
+@keyframes accFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 历史触达嵌套折叠 */
+.detail-sub-accordion {
+  margin-top: 10px;
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.sub-acc-header {
+  list-style: none;
+  cursor: pointer;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2, #4b5563);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.sub-acc-header::-webkit-details-marker {
+  display: none;
+}
+.sub-acc-chevron {
+  font-size: 14px;
+  color: var(--text-3, #9ca3af);
+  transform: rotate(0deg);
+  transition: transform 0.2s ease;
+}
+.detail-sub-accordion[open] .sub-acc-chevron {
+  transform: rotate(90deg);
+}
+.sub-acc-body {
+  padding: 8px 10px 10px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.05);
+}
+
+/* 详情页我的持仓卡片 */
+.detail-holding-box {
+  background: rgba(0, 0, 0, 0.015);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.dh-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+@media (max-width: 480px) {
+  .dh-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.dh-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dh-item span {
+  font-size: 11px;
+  color: var(--text-3, #9ca3af);
+  font-weight: 600;
+}
+.dh-item b {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text, #111827);
+  font-variant-numeric: tabular-nums;
+}
+.dh-empty-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-3, #9ca3af);
+}
+.dh-action-btn {
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--blue, #2563eb);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.dh-action-btn:hover {
+  background: rgba(37, 99, 235, 0.06);
+}
+
+/* ==================== 📝 股票/ETF 投资备注样式 (Apple 风格) ==================== */
+.detail-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-note-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.03);
+  color: var(--text-3, #9ca3af);
+  cursor: pointer;
+  line-height: 1.3;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.btn-note-pill:hover {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: var(--text, #111827);
+}
+.btn-note-pill.has-note {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.25);
+  color: var(--blue, #2563eb);
+}
+.btn-note-pill.has-note:hover {
+  background: rgba(37, 99, 235, 0.14);
+}
+.note-pill-icon {
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* 详情页备注卡片 */
+.detail-note-card {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+.detail-note-content {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-2, #374151);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.detail-note-content.clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.detail-note-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.05);
+  font-size: 11px;
+  color: var(--text-3, #9ca3af);
+}
+.note-updated-time {
+  font-size: 11px;
+  color: var(--text-3, #9ca3af);
+  font-variant-numeric: tabular-nums;
+}
+.btn-note-toggle {
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--blue, #2563eb);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+.btn-note-toggle:hover {
+  background: rgba(37, 99, 235, 0.06);
+}
+
+.detail-note-empty {
+  padding: 12px 14px;
+  background: rgba(0, 0, 0, 0.015);
+  border: 1px dashed rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-3, #9ca3af);
+  gap: 10px;
+}
+
+/* 首页列表微型备注胶囊 */
+.chip-mini-note {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  margin-left: 4px;
+  line-height: 1;
+  vertical-align: middle;
+  opacity: 0.85;
+}
+
+/* 备注弹窗 */
+.note-modal-tip {
+  font-size: 12px;
+  color: var(--text-3, #9ca3af);
+  line-height: 1.4;
+  margin-top: 2px;
+  margin-bottom: 6px;
+}
+.note-textarea {
+  width: 100%;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 130px;
+  font-family: inherit;
+  outline: none;
+  background: #ffffff;
+  color: var(--text, #111827);
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.note-textarea:focus {
+  border-color: var(--blue, #2563eb);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+.note-char-counter {
+  text-align: right;
+  font-size: 11px;
+  color: var(--text-3, #9ca3af);
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.note-sheet-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-top: 14px;
+}
+.sheet-right-actions {
+  display: flex;
+  gap: 8px;
+}
+
+

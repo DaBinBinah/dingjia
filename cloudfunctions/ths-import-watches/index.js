@@ -16,6 +16,7 @@
  */
 const cloud = require('@cloudbase/node-sdk');
 const { toThsCode } = require('./lib/ths-api');
+const { normalizeUsSymbol } = require('./lib/yahoo-api');
 const { assertAccess } = require('./lib/access-guard');
 
 const app = cloud.init({ env: cloud.SYMBOL_CURRENT_ENV });
@@ -30,7 +31,7 @@ const IN_CHUNK = 100; // 已存在代码的分批查询大小
 function parsePrice(v) {
   if (v === undefined || v === null || v === '') return null;
   const n = Number(v);
-  if (!Number.isFinite(n) || n <= 0 || n >= 1000000) return undefined;
+  if (!Number.isFinite(n) || n <= 0 || n >= 10000000) return undefined;
   return Math.round(n * 10000) / 10000;
 }
 
@@ -66,7 +67,7 @@ exports.main = async (event = {}) => {
     // 1) 服务端完整校验（与 ths-create-watch 一致的规则）
     const valid = [];
     const failed = [];
-    const seenCodes = new Set();
+    const seenKeys = new Set();
     let skippedInRequest = 0; // 同一请求内的重复代码：只保留第一条，其余按跳过计
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i] || {};
@@ -75,38 +76,66 @@ exports.main = async (event = {}) => {
         failed.push({ code: r.code, reason: '类型必须为 股票 或 ETF' });
         continue;
       }
-      const code = String(r.code || '').trim();
-      if (!/^\d{6}$/.test(code)) {
-        failed.push({ code, reason: '代码必须为 6 位数字' });
-        continue;
+
+      let market = String(r.market || '').trim().toUpperCase();
+      let rawCode = String(r.code || '').trim();
+      if (!market) {
+        market = /^\d{6}$/.test(rawCode) ? 'CN' : 'US';
       }
-      if (seenCodes.has(code)) {
+
+      let code = rawCode;
+      let thsCode = '';
+      const currency = market === 'US' ? 'USD' : 'CNY';
+      const timezone = market === 'US' ? 'America/New_York' : 'Asia/Shanghai';
+      const dataSource = market === 'US' ? 'YAHOO' : 'THS';
+
+      if (market === 'US') {
+        code = normalizeUsSymbol(code);
+        if (!/^[A-Z0-9.\-]{1,10}$/.test(code)) {
+          failed.push({ code, reason: '美股代码格式不正确（如 AAPL、NVDA、QQQ、SPY）' });
+          continue;
+        }
+        thsCode = code;
+      } else {
+        if (!/^\d{6}$/.test(code)) {
+          failed.push({ code, reason: '中国市场代码必须为 6 位数字' });
+          continue;
+        }
+        thsCode = toThsCode(type, code);
+        if (!thsCode) {
+          failed.push({ code, reason: '无法识别该代码所属市场，请检查类型与代码是否匹配' });
+          continue;
+        }
+      }
+
+      const dupKey = `${market}_${code}`;
+      if (seenKeys.has(dupKey)) {
         skippedInRequest++;
         continue;
       }
-      seenCodes.add(code);
-      const thsCode = toThsCode(type, code);
-      if (!thsCode) {
-        failed.push({ code, reason: '无法识别该代码所属市场，请检查类型与代码是否匹配' });
-        continue;
-      }
-      const name = String(r.name || '').trim().slice(0, 30) || code; // 名称缺省时用代码
+      seenKeys.add(dupKey);
+
+      const name = String(r.name || '').trim().slice(0, 40) || code; // 名称缺省时用代码
       const buyPrice = parsePrice(r.buyPrice);
       const sellPrice = parsePrice(r.sellPrice);
       if (buyPrice === undefined) {
-        failed.push({ code, reason: '买入价格必须是大于 0 的数字' });
+        failed.push({ code: r.code, reason: '买入价格必须是大于 0 的数字' });
         continue;
       }
       if (sellPrice === undefined) {
-        failed.push({ code, reason: '卖出价格必须是大于 0 的数字' });
+        failed.push({ code: r.code, reason: '卖出价格必须是大于 0 的数字' });
         continue;
       }
       if (buyPrice === null && sellPrice === null) {
-        // 与单个添加（ths-create-watch）保持一致：至少填写一条价格线
-        failed.push({ code, reason: '买入价格和卖出价格不能同时为空' });
+        failed.push({ code: r.code, reason: '买入价格和卖出价格不能同时为空' });
         continue;
       }
       valid.push({
+        market,
+        securityType: type === 'etf' ? 'ETF' : 'STOCK',
+        currency,
+        timezone,
+        dataSource,
         type,
         code,
         thsCode,
@@ -171,6 +200,8 @@ exports.main = async (event = {}) => {
         lastDividendAlertTime: null,
         quoteError: null,
         lastFetchTime: null,
+        note: '',
+        noteUpdatedAt: null,
         createdAt: now,
         updatedAt: now,
       }));

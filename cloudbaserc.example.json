@@ -1,7 +1,11 @@
 {
   "version": "2.0",
-  "envId": "REDACTED_CLOUDBASE_ENV_ID",
+  "envId": "your-cloudbase-env-id",
   "$schema": "https://static.cloudbase.net/cli/cloudbaserc.schema.json",
+  "hosting": {
+    "localPath": "./web",
+    "cloudPath": "ths"
+  },
   "functionRoot": "cloudfunctions",
   "functions": [
     {
@@ -11,7 +15,7 @@
       "handler": "index.main",
       "installDependency": true,
       "envVariables": {
-        "THS_API_KEY": "REDACTED_THS_API_KEY"
+        "THS_API_KEY": "your-ths-api-key"
       }
     },
     {
@@ -21,7 +25,7 @@
       "handler": "index.main",
       "installDependency": true,
       "envVariables": {
-        "THS_API_KEY": "REDACTED_THS_API_KEY"
+        "THS_API_KEY": "your-ths-api-key"
       }
     },
     {
@@ -52,7 +56,7 @@
       "handler": "index.main",
       "installDependency": true,
       "envVariables": {
-        "THS_API_KEY": "REDACTED_THS_API_KEY"
+        "THS_API_KEY": "your-ths-api-key"
       }
     },
     {
@@ -62,7 +66,7 @@
       "handler": "index.main",
       "installDependency": true,
       "envVariables": {
-        "THS_API_KEY": "REDACTED_THS_API_KEY"
+        "THS_API_KEY": "your-ths-api-key"
       }
     },
     {
@@ -72,11 +76,11 @@
       "handler": "index.main",
       "installDependency": true,
       "envVariables": {
-        "THS_API_KEY": "REDACTED_THS_API_KEY",
-        "THS_WECHAT_MP_APPID": "REDACTED_WECHAT_APPID",
-        "THS_WECHAT_MP_SECRET": "REDACTED_WECHAT_SECRET",
-        "THS_WECHAT_MP_TEMPLATE_ID": "REDACTED_TEMPLATE_ID",
-        "THS_WECHAT_MP_OPENID": "REDACTED_WECHAT_OPENID"
+        "THS_API_KEY": "your-ths-api-key",
+        "THS_WECHAT_MP_APPID": "your-wechat-mp-appid",
+        "THS_WECHAT_MP_SECRET": "your-wechat-mp-secret",
+        "THS_WECHAT_MP_TEMPLATE_ID": "your-template-id",
+        "THS_WECHAT_MP_OPENID": "your-wechat-openid"
       }
     },
     {
@@ -93,7 +97,7 @@
       "handler": "index.main",
       "installDependency": true,
       "envVariables": {
-        "THS_API_KEY": "REDACTED_THS_API_KEY"
+        "THS_API_KEY": "your-ths-api-key"
       }
     },
     {
@@ -103,11 +107,11 @@
       "handler": "index.main",
       "installDependency": true,
       "envVariables": {
-        "THS_API_KEY": "REDACTED_THS_API_KEY",
-        "THS_WECHAT_MP_APPID": "REDACTED_WECHAT_APPID",
-        "THS_WECHAT_MP_SECRET": "REDACTED_WECHAT_SECRET",
-        "THS_WECHAT_MP_TEMPLATE_ID": "REDACTED_TEMPLATE_ID",
-        "THS_WECHAT_MP_OPENID": "REDACTED_WECHAT_OPENID"
+        "THS_API_KEY": "your-ths-api-key",
+        "THS_WECHAT_MP_APPID": "your-wechat-mp-appid",
+        "THS_WECHAT_MP_SECRET": "your-wechat-mp-secret",
+        "THS_WECHAT_MP_TEMPLATE_ID": "your-template-id",
+        "THS_WECHAT_MP_OPENID": "your-wechat-openid"
       },
       "triggers": [
         {
@@ -124,7 +128,7 @@
       "handler": "index.main",
       "installDependency": true,
       "envVariables": {
-        "THS_API_KEY": "REDACTED_THS_API_KEY"
+        "THS_API_KEY": "your-ths-api-key"
       }
     },
     {
@@ -134,7 +138,7 @@
       "handler": "index.main",
       "installDependency": true,
       "envVariables": {
-        "THS_API_KEY": "REDACTED_THS_API_KEY"
+        "THS_API_KEY": "your-ths-api-key"
       }
     },
     {
@@ -151,7 +155,7 @@
       "handler": "index.main",
       "installDependency": true,
       "envVariables": {
-        "THS_API_KEY": "REDACTED_THS_API_KEY"
+        "THS_API_KEY": "your-ths-api-key"
       }
     },
     {
@@ -161,7 +165,7 @@
       "handler": "index.main",
       "installDependency": true,
       "envVariables": {
-        "THS_API_KEY": "REDACTED_THS_API_KEY"
+        "THS_API_KEY": "your-ths-api-key"
       }
     },
     {
@@ -206,7 +210,7 @@
       "handler": "index.main",
       "installDependency": true,
       "envVariables": {
-        "THS_API_KEY": "REDACTED_THS_API_KEY"
+        "THS_API_KEY": "your-ths-api-key"
       }
     },
     {
@@ -223,7 +227,7 @@
       "handler": "index.main",
       "installDependency": true,
       "envVariables": {
-        "THS_API_KEY": "REDACTED_THS_API_KEY"
+        "THS_API_KEY": "your-ths-api-key"
       }
     },
     {
@@ -240,7 +244,7 @@
       "handler": "index.main",
       "installDependency": true,
       "envVariables": {
-        "THS_API_KEY": "REDACTED_THS_API_KEY"
+        "THS_API_KEY": "your-ths-api-key"
       }
     }
   ]

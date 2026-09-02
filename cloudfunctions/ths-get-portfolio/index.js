@@ -11,6 +11,7 @@
  */
 const cloud = require('@cloudbase/node-sdk');
 const { fetchQuotes, toThsCode, fetchTradingDays } = require('./lib/ths-api');
+const { fetchUsQuotes } = require('./lib/yahoo-api');
 const { beijingParts } = require('./lib/trading-time');
 const { getDividendData } = require('./lib/dividend-service');
 const { assertAccess } = require('./lib/access-guard');
@@ -71,8 +72,12 @@ async function safeQuery(fn, fallback = { data: [] }) {
 }
 
 /** 计算考虑交易费用的理论回本价（盈亏平衡价格） */
-function calcBreakevenPrice(type, quantity, costPrice, feeSettings = {}) {
+function calcBreakevenPrice(type, quantity, costPrice, feeSettings = {}, isUs = false) {
   if (!quantity || !costPrice) return null;
+  if (isUs) {
+    // 美股大多数券商免佣，印花税/过户费极低
+    return round(costPrice, 2);
+  }
   const commissionRate = feeSettings.commissionRate != null ? Number(feeSettings.commissionRate) : 0.00025; // 默认万2.5
   const minCommission = feeSettings.minCommission != null ? Number(feeSettings.minCommission) : 5.0;       // 默认5元
   const stampDutyRate = type === 'stock' ? (feeSettings.stampDutyRate != null ? Number(feeSettings.stampDutyRate) : 0.0005) : 0; // 股票卖出印花税万5，ETF免
@@ -83,8 +88,6 @@ function calcBreakevenPrice(type, quantity, costPrice, feeSettings = {}) {
   const buyTransfer = buyAmount * transferFeeRate;
   const totalActualCost = buyAmount + buyCommission + buyTransfer;
 
-  // 设卖出价格为 P，卖出净得 = quantity * P - max(minCommission, quantity * P * commissionRate) - quantity * P * stampDutyRate - quantity * P * transferFeeRate
-  // 近似线性求解 P
   const effectiveSellRate = 1 - commissionRate - stampDutyRate - transferFeeRate;
   if (effectiveSellRate <= 0) return costPrice;
   const theoreticalSellAmount = (totalActualCost + minCommission) / effectiveSellRate;
@@ -119,6 +122,7 @@ exports.main = async (event = {}) => {
 
     const watchMap = new Map();
     for (const w of watches) {
+      if (w.code) watchMap.set(`${w.market || 'CN'}_${w.code}`, w);
       if (w.code) watchMap.set(w.code, w);
       if (w.thsCode) watchMap.set(w.thsCode, w);
     }
@@ -128,39 +132,57 @@ exports.main = async (event = {}) => {
       if (p.code) planMap.set(p.code, p);
     }
 
-    // 1. 批量拉取持仓标的最新行情
-    const stockCodes = [];
-    const etfCodes = [];
+    // 1. 批量拉取持仓标的最新行情（中国标的 + 美股标的）
+    const cnStockCodes = [];
+    const cnEtfCodes = [];
+    const usSymbols = [];
+
     for (const h of holdingsRaw) {
-      const tc = h.thsCode || toThsCode(h.type, h.code);
-      if (tc) {
-        if (h.type === 'stock') stockCodes.push(tc);
-        else if (h.type === 'etf') etfCodes.push(tc);
+      const isUs = (h.market === 'US') || (!h.market && !/^\d{6}$/.test(h.code));
+      if (isUs) {
+        usSymbols.push(h.code);
+      } else {
+        const tc = h.thsCode || toThsCode(h.type, h.code);
+        if (tc) {
+          if (h.type === 'stock') cnStockCodes.push(tc);
+          else if (h.type === 'etf') cnEtfCodes.push(tc);
+        }
       }
     }
 
-    const [stockQuotesRes, etfQuotesRes] = await Promise.all([
-      stockCodes.length ? fetchQuotes('stock', [...new Set(stockCodes)]).catch(() => ({ quotes: {} })) : { quotes: {} },
-      etfCodes.length ? fetchQuotes('etf', [...new Set(etfCodes)]).catch(() => ({ quotes: {} })) : { quotes: {} },
+    const [stockQuotesRes, etfQuotesRes, usQuotesRes] = await Promise.all([
+      cnStockCodes.length ? fetchQuotes('stock', [...new Set(cnStockCodes)]).catch(() => ({ quotes: {} })) : { quotes: {} },
+      cnEtfCodes.length ? fetchQuotes('etf', [...new Set(cnEtfCodes)]).catch(() => ({ quotes: {} })) : { quotes: {} },
+      usSymbols.length ? fetchUsQuotes([...new Set(usSymbols)]).catch(() => ({ quotes: {} })) : { quotes: {} },
     ]);
-    const quotes = { ...stockQuotesRes.quotes, ...etfQuotesRes.quotes };
+    const quotes = {
+      ...stockQuotesRes.quotes,
+      ...etfQuotesRes.quotes,
+      ...usQuotesRes.quotes,
+    };
 
     // 2. 现金账户汇总
-    let cashBalance = 0;
-    let totalInvested = 0;
+    let cashBalanceCn = 0;
+    let totalInvestedCn = 0;
+    let cashBalanceUs = 0;
+    let totalInvestedUs = 0;
+
     for (const acc of accounts) {
-      if (typeof acc.cashBalance === 'number') cashBalance += acc.cashBalance;
-      if (typeof acc.totalInvested === 'number') totalInvested += acc.totalInvested;
+      const accCurrency = acc.currency || (acc.market === 'US' ? 'USD' : 'CNY');
+      const c = typeof acc.cashBalance === 'number' ? acc.cashBalance : 0;
+      const inv = typeof acc.totalInvested === 'number' ? acc.totalInvested : 0;
+      if (accCurrency === 'USD') {
+        cashBalanceUs += c;
+        totalInvestedUs += inv;
+      } else {
+        cashBalanceCn += c;
+        totalInvestedCn += inv;
+      }
     }
 
-    // 3. 逐个持仓计算
-    let stockMarketValue = 0;
-    let etfMarketValue = 0;
-    let totalCost = 0;
-    let totalFloatingPnL = 0;
-    let todayTotalPnL = 0;
-    let totalExpectedDividend = 0;
-    let totalPlannedAmount = 0;
+    // 3. 分币种资产统计累加器
+    const cnStat = { stockMv: 0, etfMv: 0, cost: 0, floatPnL: 0, todayPnL: 0, dividend: 0, planned: 0, count: 0 };
+    const usStat = { stockMv: 0, etfMv: 0, cost: 0, floatPnL: 0, todayPnL: 0, dividend: 0, planned: 0, count: 0 };
 
     const reachSellHoldings = [];
     const reachBuyHoldings = [];
@@ -171,9 +193,16 @@ exports.main = async (event = {}) => {
     const holdings = [];
 
     for (const h of holdingsRaw) {
-      const tc = h.thsCode || toThsCode(h.type, h.code);
-      const q = (tc && quotes[tc]) || null;
-      const w = watchMap.get(h.code) || (tc ? watchMap.get(tc) : null) || null;
+      const isUs = (h.market === 'US') || (!h.market && !/^\d{6}$/.test(h.code));
+      const market = isUs ? 'US' : 'CN';
+      const currency = isUs ? 'USD' : 'CNY';
+      const timezone = isUs ? 'America/New_York' : 'Asia/Shanghai';
+      const stat = isUs ? usStat : cnStat;
+      stat.count++;
+
+      const tc = isUs ? h.code : (h.thsCode || toThsCode(h.type, h.code));
+      const q = (tc && quotes[tc]) || (quotes[h.code]) || null;
+      const w = watchMap.get(`${market}_${h.code}`) || watchMap.get(h.code) || null;
       const p = planMap.get(h.code) || null;
 
       const quantity = Number(h.quantity) || 0;
@@ -202,28 +231,30 @@ exports.main = async (event = {}) => {
 
         if (prevPrice !== null && prevPrice > 0) {
           todayPnL = round((currentPrice - prevPrice) * quantity, 2);
-          todayTotalPnL += todayPnL;
+          stat.todayPnL += todayPnL;
         }
 
-        if (h.type === 'stock') stockMarketValue += marketValue;
-        else if (h.type === 'etf') etfMarketValue += marketValue;
+        if (h.type === 'stock') stat.stockMv += marketValue;
+        else if (h.type === 'etf') stat.etfMv += marketValue;
 
-        totalCost += costAmount;
-        totalFloatingPnL += floatingPnL;
+        stat.cost += costAmount;
+        stat.floatPnL += floatingPnL;
       } else {
-        totalCost += costAmount;
+        stat.cost += costAmount;
       }
 
-      // 读取分红数据
+      // 分红数据（仅中国 A 股有完整同花顺分红日历，美股若无接口则安全跳过）
       let dividendData = null;
-      try {
-        dividendData = await getDividendData(db, h.type, h.code, {
-          currentPrice,
-          buyPrice: w ? w.buyPrice : costPrice,
-          tradingDays,
-          holidays,
-        });
-      } catch (_) {}
+      if (!isUs) {
+        try {
+          dividendData = await getDividendData(db, h.type, h.code, {
+            currentPrice,
+            buyPrice: w ? w.buyPrice : costPrice,
+            tradingDays,
+            holidays,
+          });
+        } catch (_) {}
+      }
 
       let expectedDividend = null;
       let costDividendYield = null;
@@ -233,7 +264,7 @@ exports.main = async (event = {}) => {
 
       if (latestDividend && latestDividend.dividendPerShare > 0) {
         expectedDividend = round(quantity * latestDividend.dividendPerShare, 2);
-        totalExpectedDividend += expectedDividend;
+        stat.dividend += expectedDividend;
         if (costPrice > 0) {
           costDividendYield = round((latestDividend.dividendPerShare / costPrice) * 100, 2);
         }
@@ -279,7 +310,7 @@ exports.main = async (event = {}) => {
 
       // 计划投入汇总
       const plannedAmt = p && p.plannedAmount != null ? Number(p.plannedAmount) : (h.plannedAmount != null ? Number(h.plannedAmount) : 0);
-      totalPlannedAmount += plannedAmt;
+      stat.planned += plannedAmt;
 
       // 9档情景盈亏数学测算 (-30% ~ +30%)
       const scenarioPcts = [-30, -20, -10, -5, 0, 5, 10, 20, 30];
@@ -365,50 +396,89 @@ exports.main = async (event = {}) => {
       if (!reachSell && distSellPct !== null && distSellPct <= 5.0) nearSellHoldings.push(item);
     }
 
-    const totalMarketValue = round(stockMarketValue + etfMarketValue, 2);
-    const totalAsset = round(totalMarketValue + cashBalance, 2);
-    const totalFloatingPnLPct = totalCost > 0 ? round((totalFloatingPnL / totalCost) * 100, 2) : 0;
+    const cnTotalMv = round(cnStat.stockMv + cnStat.etfMv, 2);
+    const cnTotalAsset = round(cnTotalMv + cashBalanceCn, 2);
+    const cnFloatingPnLPct = cnStat.cost > 0 ? round((cnStat.floatPnL / cnStat.cost) * 100, 2) : 0;
 
-    // 仓位配置占比与单项集中度二次补齐
+    const usTotalMv = round(usStat.stockMv + usStat.etfMv, 2);
+    const usTotalAsset = round(usTotalMv + cashBalanceUs, 2);
+    const usFloatingPnLPct = usStat.cost > 0 ? round((usStat.floatPnL / usStat.cost) * 100, 2) : 0;
+
+    const cnStockWeight = cnTotalAsset > 0 ? round((cnStat.stockMv / cnTotalAsset) * 100, 1) : 0;
+    const cnEtfWeight = cnTotalAsset > 0 ? round((cnStat.etfMv / cnTotalAsset) * 100, 1) : 0;
+    const cnCashWeight = cnTotalAsset > 0 ? round((cashBalanceCn / cnTotalAsset) * 100, 1) : 0;
+    const cnUnplannedCash = Math.max(0, round(cashBalanceCn - cnStat.planned, 2));
+    const cnPlannedRatio = cashBalanceCn > 0 ? round((cnStat.planned / cashBalanceCn) * 100, 1) : 0;
+
+    const usStockWeight = usTotalAsset > 0 ? round((usStat.stockMv / usTotalAsset) * 100, 1) : 0;
+    const usEtfWeight = usTotalAsset > 0 ? round((usStat.etfMv / usTotalAsset) * 100, 1) : 0;
+    const usCashWeight = usTotalAsset > 0 ? round((cashBalanceUs / usTotalAsset) * 100, 1) : 0;
+    const usUnplannedCash = Math.max(0, round(cashBalanceUs - usStat.planned, 2));
+    const usPlannedRatio = cashBalanceUs > 0 ? round((usStat.planned / cashBalanceUs) * 100, 1) : 0;
+
+    const cnSummary = {
+      currency: 'CNY',
+      totalAsset: cnTotalAsset,
+      stockMarketValue: round(cnStat.stockMv, 2),
+      etfMarketValue: round(cnStat.etfMv, 2),
+      totalMarketValue: cnTotalMv,
+      cashBalance: round(cashBalanceCn, 2),
+      totalInvested: round(totalInvestedCn, 2),
+      totalCost: round(cnStat.cost, 2),
+      totalFloatingPnL: round(cnStat.floatPnL, 2),
+      totalFloatingPnLPct: cnFloatingPnLPct,
+      todayTotalPnL: round(cnStat.todayPnL, 2),
+      totalExpectedDividend: round(cnStat.dividend, 2),
+      totalPlannedAmount: round(cnStat.planned, 2),
+      unplannedCash: cnUnplannedCash,
+      plannedRatio: cnPlannedRatio,
+      weights: { stock: cnStockWeight, etf: cnEtfWeight, cash: cnCashWeight },
+      count: cnStat.count,
+    };
+
+    const usSummary = {
+      currency: 'USD',
+      totalAsset: usTotalAsset,
+      stockMarketValue: round(usStat.stockMv, 2),
+      etfMarketValue: round(usStat.etfMv, 2),
+      totalMarketValue: usTotalMv,
+      cashBalance: round(cashBalanceUs, 2),
+      totalInvested: round(totalInvestedUs, 2),
+      totalCost: round(usStat.cost, 2),
+      totalFloatingPnL: round(usStat.floatPnL, 2),
+      totalFloatingPnLPct: usFloatingPnLPct,
+      todayTotalPnL: round(usStat.todayPnL, 2),
+      totalExpectedDividend: round(usStat.dividend, 2),
+      totalPlannedAmount: round(usStat.planned, 2),
+      unplannedCash: usUnplannedCash,
+      plannedRatio: usPlannedRatio,
+      weights: { stock: usStockWeight, etf: usEtfWeight, cash: usCashWeight },
+      count: usStat.count,
+    };
+
+    // 仓位配置占比与单项集中度二次补齐（按同币种自身总资产计算占比）
     for (const h of holdings) {
-      h.weightInTotalAsset = totalAsset > 0 && h.marketValue != null ? round((h.marketValue / totalAsset) * 100, 1) : 0;
-      h.weightInTotalMarket = totalMarketValue > 0 && h.marketValue != null ? round((h.marketValue / totalMarketValue) * 100, 1) : 0;
-      h.isConcentrated = h.weightInTotalAsset >= 30.0; // 单项占总资产 30% 以上标记集中度高
+      const curTotalAsset = h.market === 'US' ? usTotalAsset : cnTotalAsset;
+      const curTotalMv = h.market === 'US' ? usTotalMv : cnTotalMv;
+      h.weightInTotalAsset = curTotalAsset > 0 && h.marketValue != null ? round((h.marketValue / curTotalAsset) * 100, 1) : 0;
+      h.weightInTotalMarket = curTotalMv > 0 && h.marketValue != null ? round((h.marketValue / curTotalMv) * 100, 1) : 0;
+      h.isConcentrated = h.weightInTotalAsset >= 30.0;
     }
 
-    const stockWeight = totalAsset > 0 ? round((stockMarketValue / totalAsset) * 100, 1) : 0;
-    const etfWeight = totalAsset > 0 ? round((etfMarketValue / totalAsset) * 100, 1) : 0;
-    const cashWeight = totalAsset > 0 ? round((cashBalance / totalAsset) * 100, 1) : 0;
-
-    // 资金安全垫与未规划资金
-    const unplannedCash = Math.max(0, round(cashBalance - totalPlannedAmount, 2));
-    const plannedRatio = cashBalance > 0 ? round((totalPlannedAmount / cashBalance) * 100, 1) : 0;
+    const defaultSummary = usStat.count > 0 && cnStat.count === 0 ? usSummary : cnSummary;
 
     return {
       ok: true,
       summary: {
-        totalAsset,
-        stockMarketValue: round(stockMarketValue, 2),
-        etfMarketValue: round(etfMarketValue, 2),
-        totalMarketValue,
-        cashBalance: round(cashBalance, 2),
-        totalInvested: round(totalInvested, 2),
-        totalCost: round(totalCost, 2),
-        totalFloatingPnL: round(totalFloatingPnL, 2),
-        totalFloatingPnLPct,
-        todayTotalPnL: round(todayTotalPnL, 2),
-        totalExpectedDividend: round(totalExpectedDividend, 2),
-        totalPlannedAmount: round(totalPlannedAmount, 2),
-        unplannedCash,
-        plannedRatio,
-        weights: {
-          stock: stockWeight,
-          etf: etfWeight,
-          cash: cashWeight,
-        },
+        ...defaultSummary,
+        cn: cnSummary,
+        us: usSummary,
+        hasCn: cnStat.count > 0 || cashBalanceCn > 0,
+        hasUs: usStat.count > 0 || cashBalanceUs > 0,
       },
       holdings,
       accounts,
+      plans,
       opportunities: {
         reachSell: reachSellHoldings,
         reachBuy: reachBuyHoldings,
@@ -416,10 +486,13 @@ exports.main = async (event = {}) => {
         nearBuy: nearBuyHoldings,
         nearSell: nearSellHoldings,
       },
-      settings: userSettingsDoc,
+      settings: {
+        holidays,
+        tradingDays: tradingDays ? [...tradingDays] : null,
+      },
       serverTime: nowMs,
     };
   } catch (e) {
-    return { ok: false, error: `读取资产组合失败：${e.message}` };
+    return { ok: false, error: `获取资产组合失败：${e.message}` };
   }
 };

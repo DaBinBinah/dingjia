@@ -5,6 +5,7 @@
  */
 const cloud = require('@cloudbase/node-sdk');
 const { ThsApiError, toThsCode, fetchQuotes, searchTickerName } = require('./lib/ths-api');
+const { fetchUsQuotes, normalizeUsSymbol } = require('./lib/yahoo-api');
 const { assertAccess } = require('./lib/access-guard');
 
 cloud.init({ env: cloud.SYMBOL_CURRENT_ENV });
@@ -13,11 +14,47 @@ exports.main = async (event = {}) => {
   const denied = assertAccess(event);
   if (denied) return denied;
 
-  const type = String(event.type || '');
-  const code = String(event.code || '').trim();
+  const market = String(event.market || 'CN').trim().toUpperCase() === 'US' ? 'US' : 'CN';
+  const type = String(event.type || 'stock').toLowerCase();
   if (!['stock', 'etf'].includes(type)) {
     return { ok: false, error: '类型必须为 stock（股票）或 etf（ETF）' };
   }
+
+  let code = String(event.code || '').trim();
+
+  if (market === 'US') {
+    code = normalizeUsSymbol(code);
+    if (!/^[A-Z0-9.\-]{1,10}$/.test(code)) {
+      return { ok: false, error: '美股代码格式不正确（如 AAPL、NVDA、QQQ、SPY）' };
+    }
+
+    try {
+      const { quotes, failures } = await fetchUsQuotes([code]);
+      const quote = quotes[code];
+      if (!quote) {
+        return { ok: false, error: failures[code] || '暂无美股行情数据', thsCode: code };
+      }
+      return {
+        ok: true,
+        market: 'US',
+        currency: 'USD',
+        timezone: 'America/New_York',
+        dataSource: 'YAHOO',
+        thsCode: code,
+        price: quote.price,
+        changePercent: quote.changePercent,
+        prevPrice: quote.prevPrice,
+        fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh,
+        fiftyTwoWeekLow: quote.fiftyTwoWeekLow,
+        name: event.name || code,
+        serverTime: Date.now(),
+      };
+    } catch (e) {
+      return { ok: false, thsCode: code, error: e.message };
+    }
+  }
+
+  // 中国市场 (CN)
   const thsCode = toThsCode(type, code);
   if (!thsCode) {
     return { ok: false, error: '代码格式不正确：应为 6 位数字，且属于支持的市场' };
@@ -43,6 +80,10 @@ exports.main = async (event = {}) => {
     const name = withName ? await searchTickerName(code) : null;
     return {
       ok: true,
+      market: 'CN',
+      currency: 'CNY',
+      timezone: 'Asia/Shanghai',
+      dataSource: 'THS',
       thsCode,
       price: quote.price,
       changePercent: quote.changePercent,

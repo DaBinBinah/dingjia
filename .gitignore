@@ -1,22 +1,62 @@
+# ========================
 # macOS
+# ========================
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
 
+# ========================
 # 依赖
+# ========================
 node_modules/
+package-lock.json
 
-# 第三方技能包与工具目录（非项目源码）
-.agents/
-skills-lock.json
-.zcode/
-
-# 环境变量与本地配置
+# ========================
+# 环境变量与本地敏感配置
+# ========================
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
+# ========================
+# CloudBase 本地部署配置（含密钥，仅保留 example 模板）
+# ========================
+cloudbaserc.json
+
+# ========================
 # 日志
+# ========================
 *.log
 npm-debug.log*
 
-# WorkBuddy / AI 工具工作数据（工具产物，非项目源码）
+# ========================
+# IDE / 编辑器
+# ========================
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.swo
+*~
+
+# ========================
+# AI 研发辅助工具（非项目源码）
+# ========================
+.agents/
+skills-lock.json
+.zcode/
+.claude/
 .workbuddy-ai/
+CLAUDE.md
+
+# ========================
+# 临时测试与开发计划文件
+# ========================
+test-debug.js
+*-test.js
+jihua*.md

@@ -15,7 +15,16 @@
  */
 const cloud = require('@cloudbase/node-sdk');
 const { fetchQuotes, fetchTradingDays } = require('./lib/ths-api');
-const { beijingParts, getTradingPhase, isTradingTime, getTradingDaysBetween } = require('./lib/trading-time');
+const { fetchUsQuotes, normalizeUsSymbol } = require('./lib/yahoo-api');
+const {
+  beijingParts,
+  getTradingPhase,
+  isTradingTime,
+  usNewYorkParts,
+  getUsTradingPhase,
+  isUsTradingTime,
+  getTradingDaysBetween,
+} = require('./lib/trading-time');
 const alertService = require('./lib/alert-service');
 const dividendService = require('./lib/dividend-service');
 const { assertAccess } = require('./lib/access-guard');
@@ -60,15 +69,20 @@ exports.main = async (event = {}) => {
   const isTimer = event.Type === 'Timer' || event.TriggerType === 'Timer';
   const force = !isTimer && event.force === true;
   const startedAt = Date.now();
+  const cycleId = `scan_${startedAt}_${Math.random().toString(36).slice(2, 8)}`;
 
   const settings = await loadSettings();
   const today = beijingParts(startedAt).compactDate;
   const tradingDays = await resolveTradingDays(startedAt).catch(() => null);
   const phase = getTradingPhase({ holidays: settings.holidays, tradingDays, nowMs: startedAt });
+  const usPhase = getUsTradingPhase(startedAt);
 
-  // 非交易时间：定时路径直接跳过，不产生任何行情 API 调用
-  if (!force && !isTradingTime(phase)) {
-    return { ok: true, skipped: true, reason: 'non-trading-time', phase };
+  const isCnTrading = force || isTradingTime(phase);
+  const isUsTrading = force || isUsTradingTime(usPhase);
+
+  // 非交易时间：如果两个市场均未开市且非强制刷新，直接跳过
+  if (!isCnTrading && !isUsTrading) {
+    return { ok: true, skipped: true, reason: 'non-trading-time', phase, usPhase };
   }
 
   // 定时路径按配置间隔节流（手动 force 不节流，供用户即时刷新）
@@ -77,16 +91,17 @@ exports.main = async (event = {}) => {
     const state = (stateSnap.data && stateSnap.data[0]) || null;
     const intervalMs = settings.monitorIntervalSec * 1000;
     if (state && state.lastScanAt && startedAt - state.lastScanAt < intervalMs - 500) {
-      return { ok: true, skipped: true, reason: 'throttled', phase };
+      return { ok: true, skipped: true, reason: 'throttled', phase, usPhase };
     }
   }
 
   const watchSnap = await db.collection(WATCH_COLL).where({ enabled: true }).get();
-  const watches = (watchSnap.data || []).filter((w) => w && w.thsCode);
+  const watches = (watchSnap.data || []).filter((w) => w && (w.thsCode || w.code));
 
   const result = {
     ok: true,
     phase,
+    usPhase,
     scanned: watches.length,
     alertsCreated: 0,
     dividendAlertsCreated: 0,
@@ -96,30 +111,58 @@ exports.main = async (event = {}) => {
   };
   if (!watches.length) return result;
 
-  // 按类型分组取行情；单个类型整体失败不影响另一类型
-  const groups = { stock: [], etf: [] };
-  for (const w of watches) {
-    if (!groups[w.type]) groups[w.type] = [];
-    groups[w.type].push(w);
-  }
-  const quoteMap = {}; // thsCode -> {price, changePercent, prevPrice}
+  const quoteMap = {}; // thsCode -> {price, changePercent, prevPrice, ...}
   const failMap = {}; // thsCode -> 失败原因
-  for (const [type, list] of Object.entries(groups)) {
-    if (!list.length) continue;
-    const { quotes, failures } = await fetchQuotes(type, list.map((w) => w.thsCode));
-    Object.assign(quoteMap, quotes);
-    Object.assign(failMap, failures);
+
+  // 1. 中国市场 (CN) 标的并发获取（同花顺 API）
+  const cnWatches = watches.filter((w) => (w.market || 'CN') === 'CN');
+  if (isCnTrading && cnWatches.length) {
+    const groups = { stock: [], etf: [] };
+    for (const w of cnWatches) {
+      const t = w.type || 'stock';
+      if (!groups[t]) groups[t] = [];
+      groups[t].push(w);
+    }
+    for (const [type, list] of Object.entries(groups)) {
+      if (!list.length) continue;
+      try {
+        const { quotes, failures } = await fetchQuotes(type, list.map((w) => w.thsCode));
+        Object.assign(quoteMap, quotes);
+        Object.assign(failMap, failures);
+      } catch (e) {
+        for (const w of list) failMap[w.thsCode] = e.message;
+      }
+    }
+  }
+
+  // 2. 美国市场 (US) 标的并发获取（Yahoo Finance API）
+  const usWatches = watches.filter((w) => w.market === 'US');
+  if (isUsTrading && usWatches.length) {
+    try {
+      const usSymbols = usWatches.map((w) => w.thsCode || w.code);
+      const { quotes, failures } = await fetchUsQuotes(usSymbols);
+      Object.assign(quoteMap, quotes);
+      Object.assign(failMap, failures);
+    } catch (e) {
+      for (const w of usWatches) failMap[w.thsCode || w.code] = e.message;
+    }
   }
 
   const now = new Date(startedAt);
 
   for (const w of watches) {
-    const quote = quoteMap[w.thsCode];
+    const key = w.thsCode || w.code;
+    const isUs = w.market === 'US';
+    // 若当前市场处于休市且未取行情，跳过该标的处理
+    if (isUs && !isUsTrading && !quoteMap[key]) continue;
+    if (!isUs && !isCnTrading && !quoteMap[key]) continue;
+
+    const quote = quoteMap[key];
     if (!quote) {
       // 行情失败：仅记录错误标记，不更新价格、不做触发判断，绝不中断其他标的
-      const reason = failMap[w.thsCode] || '行情为空';
+      const reason = failMap[key] || '行情为空';
       result.priceErrors++;
-      result.results.push({ code: w.code, ok: false, error: reason });
+      result.results.push({ code: w.code, market: w.market || 'CN', ok: false, error: reason });
       await db.collection(WATCH_COLL).doc(w._id).update({ quoteError: reason, lastFetchTime: now }).catch(() => {});
       continue;
     }
@@ -129,23 +172,29 @@ exports.main = async (event = {}) => {
     const triggers = []; // 本次要触发的价格提醒类型
     const rearm = {}; // 需要复位（重新武装）的触发标记
 
-    // 跨日重置：新交易日开始时自动重置触发锁，保证新交易日能够产生当日首次触达
+    // 跨日重置与当日提醒状态判定
     const lastDate = w.lastFetchTime ? beijingParts(new Date(w.lastFetchTime).getTime()).compactDate : null;
     const isNewTradingDay = lastDate !== today;
-    const buyTriggerLocked = isNewTradingDay ? false : Boolean(w.buyTriggered);
-    const sellTriggerLocked = isNewTradingDay ? false : Boolean(w.sellTriggered);
+
+    const buyAlertDate = w.lastBuyAlertTime ? beijingParts(new Date(w.lastBuyAlertTime).getTime()).compactDate : null;
+    const sellAlertDate = w.lastSellAlertTime ? beijingParts(new Date(w.lastSellAlertTime).getTime()).compactDate : null;
+    const buySentToday = buyAlertDate === today;
+    const sellSentToday = sellAlertDate === today;
+
+    const buyTriggerLocked = event.rearmAll ? false : (buySentToday || (Boolean(w.buyTriggered) && !isNewTradingDay && Boolean(w.lastBuyAlertTime)));
+    const sellTriggerLocked = event.rearmAll ? false : (sellSentToday || (Boolean(w.sellTriggered) && !isNewTradingDay && Boolean(w.lastSellAlertTime)));
 
     if (prev === null) {
-      // 首次观测：若已越过阈值且未锁定，产生首次触达快照
+      // 首次观测：若已越过阈值且未锁定，产生首次触达快照与提醒
       if (w.buyPrice != null && price <= w.buyPrice && !buyTriggerLocked) triggers.push('buy');
       if (w.sellPrice != null && price >= w.sellPrice && !sellTriggerLocked) triggers.push('sell');
     } else {
-      // 买入线：从区域外重新进入（或跨日首次处于目标区）时触发；回升到上方后自动重新武装
+      // 买入线：处于买入目标区且当日未发过（或未加锁）时触发；回升到上方后自动重新武装
       if (w.buyPrice != null) {
         if (!buyTriggerLocked && price <= w.buyPrice) triggers.push('buy');
         else if (w.buyTriggered && price > w.buyPrice) rearm.buyTriggered = false;
       }
-      // 卖出线：从区域外重新进入（或跨日首次处于目标区）时触发；回落到下方后自动重新武装
+      // 卖出线：处于卖出目标区且当日未发过（或未加锁）时触发；回落到下方后自动重新武装
       if (w.sellPrice != null) {
         if (!sellTriggerLocked && price >= w.sellPrice) triggers.push('sell');
         else if (w.sellTriggered && price < w.sellPrice) rearm.sellTriggered = false;
@@ -163,11 +212,8 @@ exports.main = async (event = {}) => {
 
     try {
       if (triggers.length) {
-        // 原子抢占：仅当触发标记仍为 false 时更新才生效，防止定时器与手动刷新并发导致重复提醒
-        const cond = { _id: w._id };
         const upd = { ...baseUpdate, ...rearm };
         for (const t of triggers) {
-          cond[`${t}Triggered`] = false;
           upd[`${t}Triggered`] = true;
           upd[t === 'buy' ? 'lastBuyAlertTime' : 'lastSellAlertTime'] = now;
           if (!w[`${t}AchievedAt`]) upd[`${t}AchievedAt`] = now;
@@ -179,21 +225,29 @@ exports.main = async (event = {}) => {
             status: 'ACTIVE',
           };
         }
-        const res = await db.collection(WATCH_COLL).where(cond).update(upd);
-        const updatedCount = Number(
-          res && (res.updated != null ? res.updated : res.stats && res.stats.updated != null ? res.stats.updated : 0)
-        );
-        const claimed = updatedCount === 1;
+        let claimed = false;
+        try {
+          const res = await db.collection(WATCH_COLL).doc(w._id).update(upd);
+          const updatedCount = Number(
+            res && (res.updated != null ? res.updated : res.stats && res.stats.updated != null ? res.stats.updated : 0)
+          );
+          claimed = updatedCount === 1;
+        } catch (_) {}
         if (claimed) {
           for (const t of triggers) {
             const targetP = t === 'buy' ? w.buyPrice : w.sellPrice;
-            const cycleId = `cycle_${w.code}_${t}_${now.getTime()}`;
+            const isUs = w.market === 'US';
             const touchDoc = {
               watchId: w._id,
+              market: isUs ? 'US' : 'CN',
+              securityType: w.securityType || (w.type === 'etf' ? 'ETF' : 'STOCK'),
+              currency: isUs ? 'USD' : 'CNY',
+              timezone: isUs ? 'America/New_York' : 'Asia/Shanghai',
+              dataSource: isUs ? 'YAHOO' : 'THS',
               code: w.code,
               name: w.name,
               type: w.type,
-              thsCode: w.thsCode,
+              thsCode: w.thsCode || w.code,
               alertType: t,
               targetPrice: targetP,
               triggerPrice: price,

@@ -5,11 +5,10 @@
  */
 'use strict';
 
-/* ---------------- 云环境配置 ---------------- */
-const ENV_ID = 'REDACTED_CLOUDBASE_ENV_ID';
-const REGION = 'ap-shanghai';
-const ACCESS_KEY =
-  'REDACTED_CLOUDBASE_ACCESS_KEY';
+/* ---------------- 云环境配置（请替换为你自己的 CloudBase 配置） ---------------- */
+const ENV_ID = 'YOUR_CLOUDBASE_ENV_ID';           // 替换为你的 CloudBase 环境 ID
+const REGION = 'ap-shanghai';                      // 替换为你的 CloudBase 地域
+const ACCESS_KEY = 'YOUR_CLOUDBASE_ACCESS_KEY';    // 替换为你的 CloudBase Publishable Key（匿名登录凭证）
 
 const PHASE_LABELS = {
   trading: '监控中',
@@ -163,14 +162,24 @@ const EXPLAIN_DICT = {
     guideSec: 'secQuote',
   },
   marketOverview: {
-    title: '今日市场 (四大核心指数)',
+    title: '🇨🇳 今日中国市场 (四大核心指数)',
     desc: '反映中国 A 股全市场整体涨跌走势的核心大盘基准：\n• 沪指（上证指数）：反映上海主板全貌\n• 深指（深证成指）：反映深圳市场核心蓝筹\n• 创指（创业板指）：反映高成长与创新企业\n• 科创50：反映科创板硬科技龙头企业',
-    guideSec: 'secQuote',
+    guideSec: 'secIndex',
+  },
+  usMarketOverview: {
+    title: '🇺🇸 今日美国市场 (四大核心指数)',
+    desc: '反映美国资本市场整体走势与前沿科技方向的核心基准指数：\n• 标普500：代表全美 500 家顶尖大型上市公司表现的基准指数\n• 纳斯达克：包含纳斯达克上市的所有股票，科技股权重高\n• 纳斯达克100：纳斯达克市值最大的 100 家非金融科技巨头公司\n• AI人工智能指数（NQINTEL）：用于观察人工智能相关公司的整体市场表现',
+    guideSec: 'secIndex',
+  },
+  nqintelExplain: {
+    title: 'AI人工智能指数 (NQINTEL)',
+    desc: '正式名称：Nasdaq CTA Artificial Intelligence Index (NQINTEL)\n\n简单理解：这是一个用于观察人工智能相关公司整体市场表现的指数。',
+    guideSec: 'secIndex',
   },
   marketCompare: {
     title: '我的标的 vs 大盘对比',
     desc: '客观对比你的股票/ETF今日涨跌幅相对于四大核心大盘指数的强弱差距（百分点），帮助你理解今天是个股独立行情还是跟随大盘波动。',
-    guideSec: 'secQuote',
+    guideSec: 'secIndex',
   },
 };
 
@@ -215,6 +224,8 @@ const state = {
   marketOverview: null,
   plans: {},
   notes: {},
+  marketFilter: localStorage.getItem('ths_market_filter') || 'ALL', // 'ALL' | 'CN' | 'US'
+  formMarket: 'CN',
   settings: {
     displayMode: 'novice',
     commissionRate: 0.00025,
@@ -227,21 +238,41 @@ const state = {
 const $ = (sel) => document.querySelector(sel);
 
 /* ---------------- 工具函数 ---------------- */
-function fmtPrice(v, type) {
+function isUsStock(item) {
+  if (!item) return false;
+  if (item.market === 'US') return true;
+  if (item.market === 'CN') return false;
+  if (typeof item.code === 'string' && !/^\d{6}$/.test(item.code.trim())) return true;
+  return false;
+}
+
+function fmtPrice(v, type, market = 'CN') {
   if (typeof v !== 'number' || !Number.isFinite(v)) return null;
+  if (market === 'US') {
+    return v.toFixed(2);
+  }
   return v.toFixed(type === 'etf' ? 3 : 2);
 }
 
-function fmtMoney(v) {
-  if (typeof v !== 'number' || !Number.isFinite(v)) return '¥0.00';
-  const s = Math.abs(v).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `${v < 0 ? '-¥' : '¥'}${s}`;
+function fmtPriceWithCurrency(v, type, market = 'CN') {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return '—';
+  const sym = market === 'US' ? '$' : '¥';
+  const p = fmtPrice(v, type, market);
+  return `${sym}${p}`;
 }
 
-function fmtSignedMoney(v) {
-  if (typeof v !== 'number' || !Number.isFinite(v)) return '¥0.00';
+function fmtMoney(v, currency = 'CNY') {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return currency === 'USD' ? '$0.00' : '¥0.00';
+  const sym = currency === 'USD' ? '$' : '¥';
   const s = Math.abs(v).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `${v > 0 ? '+¥' : v < 0 ? '-¥' : '¥'}${s}`;
+  return `${v < 0 ? `-${sym}` : sym}${s}`;
+}
+
+function fmtSignedMoney(v, currency = 'CNY') {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return currency === 'USD' ? '$0.00' : '¥0.00';
+  const sym = currency === 'USD' ? '$' : '¥';
+  const s = Math.abs(v).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${v > 0 ? `+${sym}` : v < 0 ? `-${sym}` : sym}${s}`;
 }
 
 function parseDiscount(v) {
@@ -575,9 +606,13 @@ function updateRadarCard() {
   summaryEl.textContent = `今天监控中 ${ws.length} 只标的，其中 ${nearBuyCount} 只接近买入线，${nearSellCount} 只接近卖出线，${divNearCount} 只临近分红，今日已生成 ${alertCount} 次关键提醒。`;
 }
 
-function lineState(w, side) {
+function lineState(w, side = 'buy') {
   const line = side === 'buy' ? w.buyPrice : w.sellPrice;
   if (line == null) return null;
+  const isUs = isUsStock(w);
+  const sym = isUs ? '$' : '¥';
+  const market = isUs ? 'US' : 'CN';
+
   if (typeof w.currentPrice !== 'number') return { cls: 'st-wait', text: '待行情', reached: false, side };
   const price = w.currentPrice;
 
@@ -586,10 +621,10 @@ function lineState(w, side) {
       return { cls: 'st-ok-buy', text: '🎯 现价已达到买入目标价', reached: true, side: 'buy' };
     }
     const diff = price - line;
-    const pct = (diff / price) * 100;
+    const pct = price > 0 ? (diff / price) * 100 : 0;
     return {
       cls: 'st-near-buy',
-      text: `🟢 还需下跌 ¥${fmtPrice(diff, w.type)}（${pct.toFixed(1)}%） 到达买入价 ¥${fmtPrice(line, w.type)}`,
+      text: `🟢 还需下跌 ${sym}${fmtPrice(diff, w.type, market)}（${pct.toFixed(1)}%） 到达买入价 ${sym}${fmtPrice(line, w.type, market)}`,
       reached: false,
       side: 'buy',
     };
@@ -599,10 +634,10 @@ function lineState(w, side) {
     return { cls: 'st-ok-sell', text: '🎯 现价已达到卖出目标价', reached: true, side: 'sell' };
   }
   const diff = line - price;
-  const pct = (diff / price) * 100;
+  const pct = price > 0 ? (diff / price) * 100 : 0;
   return {
     cls: 'st-near-sell',
-    text: `🟡 还需上涨 ¥${fmtPrice(diff, w.type)}（${pct.toFixed(1)}%） 到达卖出价 ¥${fmtPrice(line, w.type)}`,
+    text: `🟡 还需上涨 ${sym}${fmtPrice(diff, w.type, market)}（${pct.toFixed(1)}%） 到达卖出价 ${sym}${fmtPrice(line, w.type, market)}`,
     reached: false,
     side: 'sell',
   };
@@ -614,9 +649,15 @@ function renderWatches() {
   const empty = $('#emptyState');
   const all = state.watches;
   const watchFilter = state.watchFilter;
+  const marketFilter = state.marketFilter || 'ALL';
+
   let watches = all;
-  if (watchFilter === 'done') watches = all.filter((w) => w.enabled && (w.buyAchievedAt || w.sellAchievedAt));
-  else if (watchFilter === 'active') watches = all.filter((w) => !w.enabled || !(w.buyAchievedAt || w.sellAchievedAt));
+  if (marketFilter === 'CN') watches = watches.filter((w) => (w.market || 'CN') === 'CN');
+  else if (marketFilter === 'US') watches = watches.filter((w) => w.market === 'US');
+
+  if (watchFilter === 'done') watches = watches.filter((w) => w.enabled && (w.buyAchievedAt || w.sellAchievedAt));
+  else if (watchFilter === 'active') watches = watches.filter((w) => !w.enabled || !(w.buyAchievedAt || w.sellAchievedAt));
+
   if (!watches.length) {
     list.innerHTML = '';
     empty.hidden = false;
@@ -624,7 +665,18 @@ function renderWatches() {
     const es = $('#emptySub');
     const btn = empty.querySelector('[data-open-add]');
     const alt = empty.querySelector('.empty-alt');
-    if (watchFilter === 'done') {
+
+    if (marketFilter === 'US') {
+      if (et) et.textContent = '暂无美股监控标的';
+      if (es) es.innerHTML = '点击下方“＋ 添加监控”，选择美股，<br>输入代码如 AAPL / NVDA / QQQ / SPY';
+      if (btn) btn.hidden = false;
+      if (alt) alt.hidden = false;
+    } else if (marketFilter === 'CN') {
+      if (et) et.textContent = '暂无中国市场监控标的';
+      if (es) es.innerHTML = '点击下方“＋ 添加监控”，选择中国市场，<br>输入 6 位股票或 ETF 代码';
+      if (btn) btn.hidden = false;
+      if (alt) alt.hidden = false;
+    } else if (watchFilter === 'done') {
       if (et) et.textContent = '暂无已达成标的';
       if (es) es.innerHTML = '当股票或 ETF 价格达到你设定的买入或卖出价时，<br>会在此归档展示';
       if (btn) btn.hidden = true;
@@ -667,7 +719,9 @@ function renderWatches() {
 
   list.innerHTML = watches
     .map((w) => {
-      const priceStr = fmtPrice(w.currentPrice, w.type);
+      const isUs = isUsStock(w);
+      const sym = isUs ? '$' : '¥';
+      const priceStr = fmtPrice(w.currentPrice, w.type, w.market);
       const pct = fmtPct(w.changePercent);
       const pctCls = w.changePercent == null ? 'flat' : w.changePercent > 0 ? 'up' : w.changePercent < 0 ? 'down' : 'flat';
       const inBuy = w.buyPrice != null && w.currentPrice != null && w.currentPrice <= w.buyPrice;
@@ -705,7 +759,7 @@ function renderWatches() {
         holdingTag = `<span class="chip chip-holding">🟢 持有 ${h.quantity}股 (${hpct || '—'})</span>`;
       }
 
-      const thsCode = w.thsCode || (w.type === 'etf' || w.type === 'stock' ? impToThsCode(w.type, w.code) : null);
+      const thsCode = w.thsCode || w.code;
       const p = thsCode ? state.perf[thsCode] : null;
 
       let ytdRow = '';
@@ -727,8 +781,8 @@ function renderWatches() {
         const distHigh = high ? ((w.currentPrice - high) / high) * 100 : null;
         const distLow = low ? ((w.currentPrice - low) / low) * 100 : null;
         yearRangeRow = `<div class="year-range-row">
-          <span>年内高 <b>¥${high ? fmtPrice(high, w.type) : '—'}</b>${distHigh != null ? `（${fmtPct(distHigh)}）` : ''}</span>
-          <span>年内低 <b>¥${low ? fmtPrice(low, w.type) : '—'}</b>${distLow != null ? `（${fmtPct(distLow)}）` : ''}</span>
+          <span>52周最高 <b>${sym}${high ? fmtPrice(high, w.type, w.market) : '—'}</b>${distHigh != null ? `（${fmtPct(distHigh)}）` : ''}</span>
+          <span>52周最低 <b>${sym}${low ? fmtPrice(low, w.type, w.market) : '—'}</b>${distLow != null ? `（${fmtPct(distLow)}）` : ''}</span>
         </div>`;
       }
 
@@ -737,20 +791,20 @@ function renderWatches() {
       const lines = [];
       if (buyLine) {
         if (buyLine.reached) {
-          lines.push(`<div class="line hit-highlight buy"><span>${esc(buyLine.text)}</span> <span>¥${fmtPrice(w.buyPrice, w.type)}</span></div>`);
+          lines.push(`<div class="line hit-highlight buy"><span>${esc(buyLine.text)}</span> <span>${sym}${fmtPrice(w.buyPrice, w.type, w.market)}</span></div>`);
         } else {
           lines.push(`<div class="line"><span class="st ${buyLine.cls}">${esc(buyLine.text)}</span></div>`);
         }
       }
       if (sellLine) {
         if (sellLine.reached) {
-          lines.push(`<div class="line hit-highlight sell"><span>${esc(sellLine.text)}</span> <span>¥${fmtPrice(w.sellPrice, w.type)}</span></div>`);
+          lines.push(`<div class="line hit-highlight sell"><span>${esc(sellLine.text)}</span> <span>${sym}${fmtPrice(w.sellPrice, w.type, w.market)}</span></div>`);
         } else {
           lines.push(`<div class="line"><span class="st ${sellLine.cls}">${esc(sellLine.text)}</span></div>`);
         }
       }
 
-      const div = thsCode ? state.dividends[thsCode] : null;
+      const div = (!isUs && thsCode) ? state.dividends[thsCode] : null;
       let divRow = '';
       if (div && div.hasDividend && div.latest) {
         const latest = div.latest;
@@ -787,24 +841,29 @@ function renderWatches() {
       if (w.lastTouch && w.lastTouch.triggeredAt) {
         const t = w.lastTouch;
         const isBuy = t.alertType === 'buy';
-        const postTxt = t.status === 'RETURNED' ? `触达后回落至 ¥${fmtPrice(w.currentPrice, w.type)}` : '当前仍处于目标区';
+        const postTxt = t.status === 'RETURNED' ? `触达后回落至 ${sym}${fmtPrice(w.currentPrice, w.type, w.market)}` : '当前仍处于目标区';
         touchBanner = `<div class="card-touch-banner ${isBuy ? 'buy' : 'sell'}">
-          <span>${isBuy ? '🟢 买入价已触达' : '🔴 卖出价已触达'} ${fmtTime(t.triggeredAt)} · ¥${fmtPrice(t.triggerPrice, w.type)}</span>
+          <span>${isBuy ? '🟢 买入价已触达' : '🔴 卖出价已触达'} ${fmtTime(t.triggeredAt)} · ${sym}${fmtPrice(t.triggerPrice, w.type, w.market)}</span>
           <span class="ctb-post">${postTxt}</span>
         </div>`;
       }
+
+      const noteTag = (w.note || (holdingMap.get(w.code) && holdingMap.get(w.code).note)) ? '<span class="chip-mini-note" title="已有备注">📝</span>' : '';
+      const marketBadge = isUs
+        ? `<span class="chip-market us">🇺🇸 美股 · ${w.type === 'etf' ? 'ETF' : '股票'}</span>`
+        : `<span class="chip-market cn">🇨🇳 中国 · ${w.type === 'etf' ? 'ETF' : '股票'}</span>`;
 
       return `
         <div class="${cardCls.join(' ')}" data-id="${esc(w._id)}" role="button" tabindex="0">
           <div class="card-top">
             <div style="min-width:0">
-              <div class="card-name"><span class="nm">${esc(w.name)}</span>${badge}${holdingTag}</div>
-              <div class="card-code">${esc(w.code)} · ${w.type === 'etf' ? 'ETF' : '股票'}</div>
+              <div class="card-name"><span class="nm">${esc(w.name)}</span>${badge}${holdingTag}${noteTag}</div>
+              <div class="card-code">${esc(w.code)} · ${marketBadge}</div>
             </div>
             ${pinBadge}
           </div>
           <div class="card-price-row">
-            <span class="card-price ${priceStr == null ? 'na' : ''}">${priceStr == null ? '暂无行情' : `¥${priceStr}`}</span>
+            <span class="card-price ${priceStr == null ? 'na' : ''}">${priceStr == null ? '暂无行情' : `${sym}${priceStr}`}</span>
             <span class="card-change ${pctCls}">${pct == null ? '' : `${w.changePercent > 0 ? '↑' : w.changePercent < 0 ? '↓' : ''} ${pct}`}</span>
           </div>
           ${ytdRow}
@@ -830,16 +889,27 @@ function renderWatches() {
 /* ---------------- 资产视图渲染 ---------------- */
 function renderPortfolio() {
   const sum = state.portfolio.summary || {};
-  $('#heroTotalAsset').textContent = fmtMoney(sum.totalAsset || 0);
-  $('#heroStockVal').textContent = fmtMoney(sum.stockMarketValue || 0);
-  $('#heroEtfVal').textContent = fmtMoney(sum.etfMarketValue || 0);
-  $('#heroCashVal').textContent = fmtMoney(sum.cashBalance || 0);
-  $('#heroCostVal').textContent = fmtMoney(sum.totalCost || 0);
+  const hasCn = !!(sum.hasCn || (sum.cn && (sum.cn.totalAsset > 0 || sum.cn.count > 0)));
+  const hasUs = !!(sum.hasUs || (sum.us && (sum.us.totalAsset > 0 || sum.us.count > 0)));
+  const isDual = hasCn && hasUs;
+
+  if (isDual) {
+    $('#heroTotalAsset').innerHTML = `<span style="font-size:18px;font-weight:700;">🇨🇳 ¥${(sum.cn.totalAsset || 0).toLocaleString('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:2})}</span> <span style="font-size:13px;color:var(--text-3);margin:0 4px;">|</span> <span style="font-size:18px;font-weight:700;">🇺🇸 $${(sum.us.totalAsset || 0).toLocaleString('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>`;
+  } else {
+    const mainCurr = hasUs ? 'USD' : 'CNY';
+    $('#heroTotalAsset').textContent = fmtMoney(sum.totalAsset || 0, mainCurr);
+  }
+
+  const curr = hasUs && !hasCn ? 'USD' : 'CNY';
+  $('#heroStockVal').textContent = fmtMoney(sum.stockMarketValue || 0, curr);
+  $('#heroEtfVal').textContent = fmtMoney(sum.etfMarketValue || 0, curr);
+  $('#heroCashVal').textContent = fmtMoney(sum.cashBalance || 0, curr);
+  $('#heroCostVal').textContent = fmtMoney(sum.totalCost || 0, curr);
 
   const fp = sum.totalFloatingPnL || 0;
   const fpp = sum.totalFloatingPct != null ? sum.totalFloatingPct : sum.totalFloatingPnLPct || 0;
   const fpEl = $('#heroFloatingPnL');
-  fpEl.textContent = fmtSignedMoney(fp);
+  fpEl.textContent = fmtSignedMoney(fp, curr);
   fpEl.className = `hp-val ${fp > 0 ? 'text-up' : fp < 0 ? 'text-down' : 'flat'}`;
 
   const fppEl = $('#heroFloatingPct');
@@ -848,10 +918,10 @@ function renderPortfolio() {
 
   const tp = sum.todayTotalPnL || 0;
   const tpEl = $('#heroTodayPnL');
-  tpEl.textContent = fmtSignedMoney(tp);
+  tpEl.textContent = fmtSignedMoney(tp, curr);
   tpEl.className = `hp-val ${tp > 0 ? 'text-up' : tp < 0 ? 'text-down' : 'flat'}`;
 
-  $('#heroDividendVal').textContent = fmtMoney(sum.totalExpectedDividend || 0);
+  $('#heroDividendVal').textContent = fmtMoney(sum.totalExpectedDividend || 0, curr);
 
   // 资产配置条
   const w = sum.weights || { stock: 0, etf: 0, cash: 100 };
@@ -864,8 +934,8 @@ function renderPortfolio() {
 
   // 资金安全垫与计划投入看板
   $('#fuCashRatio').textContent = `${w.cash}%`;
-  $('#fuPlannedAmt').textContent = fmtMoney(sum.totalPlannedAmount || 0);
-  $('#fuUnplannedCash').textContent = fmtMoney(sum.unplannedCash != null ? sum.unplannedCash : (sum.cashBalance || 0));
+  $('#fuPlannedAmt').textContent = fmtMoney(sum.totalPlannedAmount || 0, curr);
+  $('#fuUnplannedCash').textContent = fmtMoney(sum.unplannedCash != null ? sum.unplannedCash : (sum.cashBalance || 0), curr);
 
   // 单项集中度事实提示
   const concBanner = $('#concBanner');
@@ -888,17 +958,21 @@ function renderOpportunities() {
   const items = [];
 
   for (const h of opp.reachSell || []) {
+    const isUs = (h.market === 'US') || (!h.market && !/^\d{6}$/.test(h.code));
+    const sym = isUs ? '$' : '¥';
     items.push(`<div class="opp-item opp-reach-sell" data-code="${esc(h.code)}">
       <span class="opp-badge red">🔴 已达到卖出价</span>
-      <div class="opp-txt"><b>${esc(h.name)}</b> 现价 ¥${fmtPrice(h.currentPrice, h.type)} ｜ 目标 ¥${fmtPrice(h.sellPrice, h.type)} ｜ 预计利润 <b class="text-up">+¥${h.expectedProfitAtSell}</b></div>
+      <div class="opp-txt"><b>${esc(h.name)}</b> 现价 ${sym}${fmtPrice(h.currentPrice, h.type, isUs ? 'US' : 'CN')} ｜ 目标 ${sym}${fmtPrice(h.sellPrice, h.type, isUs ? 'US' : 'CN')} ｜ 预计利润 <b class="text-up">+${sym}${h.expectedProfitAtSell}</b></div>
     </div>`);
   }
 
   for (const h of opp.reachBuy || []) {
+    const isUs = (h.market === 'US') || (!h.market && !/^\d{6}$/.test(h.code));
+    const sym = isUs ? '$' : '¥';
     const buyShares = h.plannedAmount && h.buyPrice ? Math.floor(h.plannedAmount / h.buyPrice) : null;
     items.push(`<div class="opp-item opp-reach-buy" data-code="${esc(h.code)}">
       <span class="opp-badge green">🟢 已达到买入价</span>
-      <div class="opp-txt"><b>${esc(h.name)}</b> 现价 ¥${fmtPrice(h.currentPrice, h.type)} ｜ 买入目标 ¥${fmtPrice(h.buyPrice, h.type)}${buyShares ? ` ｜ 计划投入可买约 <b>${buyShares}股</b>` : ''}</div>
+      <div class="opp-txt"><b>${esc(h.name)}</b> 现价 ${sym}${fmtPrice(h.currentPrice, h.type, isUs ? 'US' : 'CN')} ｜ 买入目标 ${sym}${fmtPrice(h.buyPrice, h.type, isUs ? 'US' : 'CN')}${buyShares ? ` ｜ 计划投入可买约 <b>${buyShares}股</b>` : ''}</div>
     </div>`);
   }
 
@@ -910,16 +984,20 @@ function renderOpportunities() {
   }
 
   for (const h of opp.nearBuy || []) {
+    const isUs = (h.market === 'US') || (!h.market && !/^\d{6}$/.test(h.code));
+    const sym = isUs ? '$' : '¥';
     items.push(`<div class="opp-item opp-near-buy" data-code="${esc(h.code)}">
       <span class="opp-badge green-light">🟢 接近买入</span>
-      <div class="opp-txt"><b>${esc(h.name)}</b> 现价 ¥${fmtPrice(h.currentPrice, h.type)} ｜ 距离买入目标仅 <b>${h.distBuyPct}%</b></div>
+      <div class="opp-txt"><b>${esc(h.name)}</b> 现价 ${sym}${fmtPrice(h.currentPrice, h.type, isUs ? 'US' : 'CN')} ｜ 距离买入目标仅 <b>${h.distBuyPct}%</b></div>
     </div>`);
   }
 
   for (const h of opp.nearSell || []) {
+    const isUs = (h.market === 'US') || (!h.market && !/^\d{6}$/.test(h.code));
+    const sym = isUs ? '$' : '¥';
     items.push(`<div class="opp-item opp-near-sell" data-code="${esc(h.code)}">
       <span class="opp-badge yellow">🟡 接近卖出</span>
-      <div class="opp-txt"><b>${esc(h.name)}</b> 现价 ¥${fmtPrice(h.currentPrice, h.type)} ｜ 距离卖出目标仅 <b>${h.distSellPct}%</b></div>
+      <div class="opp-txt"><b>${esc(h.name)}</b> 现价 ${sym}${fmtPrice(h.currentPrice, h.type, isUs ? 'US' : 'CN')} ｜ 距离卖出目标仅 <b>${h.distSellPct}%</b></div>
     </div>`);
   }
 
@@ -962,6 +1040,9 @@ function renderHoldingsList() {
 
   container.innerHTML = holdings
     .map((h) => {
+      const isUs = (h.market === 'US') || (!h.market && !/^\d{6}$/.test(h.code));
+      const sym = isUs ? '$' : '¥';
+      const curr = isUs ? 'USD' : 'CNY';
       const pnl = h.floatingPnL || 0;
       const pnlPct = h.floatingPnLPct || 0;
       const pnlCls = pnl > 0 ? 'text-up' : pnl < 0 ? 'text-down' : 'flat';
@@ -978,7 +1059,7 @@ function renderHoldingsList() {
       let sellProfitRow = '';
       if (h.sellPrice != null && h.expectedProfitAtSell != null) {
         sellProfitRow = `<div class="h-theory-row">
-          <span>🎯 目标卖出 ¥${fmtPrice(h.sellPrice, h.type)} ｜ 预计理论利润 <b class="text-up">+¥${h.expectedProfitAtSell} (${fmtPct(h.expectedReturnAtSell)})</b></span>
+          <span>🎯 目标卖出 ${sym}${fmtPrice(h.sellPrice, h.type, isUs ? 'US' : 'CN')} ｜ 预计理论利润 <b class="text-up">+${sym}${h.expectedProfitAtSell} (${fmtPct(h.expectedReturnAtSell)})</b></span>
         </div>`;
       }
 
@@ -991,24 +1072,26 @@ function renderHoldingsList() {
         </div>`;
       }
 
+      const marketBadge = isUs ? '🇺🇸 美股' : '🇨🇳 中国';
+
       return `
         <div class="card holding-card" data-id="${esc(h._id)}">
           <div class="card-top">
             <div>
               <div class="card-name"><span class="nm">${esc(h.name)}</span>${badges.join('')}</div>
-              <div class="card-code">${esc(h.code)} · ${h.type === 'etf' ? 'ETF' : '股票'} ｜ ${esc(h.accountName || '默认账户')}</div>
+              <div class="card-code">${esc(h.code)} · ${marketBadge} · ${h.type === 'etf' ? 'ETF' : '股票'} ｜ ${esc(h.accountName || '默认账户')}</div>
             </div>
             <div class="h-top-right">
-              <span class="card-price">${h.currentPrice ? `¥${fmtPrice(h.currentPrice, h.type)}` : '暂无行情'}</span>
+              <span class="card-price">${h.currentPrice ? `${sym}${fmtPrice(h.currentPrice, h.type, isUs ? 'US' : 'CN')}` : '暂无行情'}</span>
               <span class="card-change ${h.changePercent > 0 ? 'up' : h.changePercent < 0 ? 'down' : 'flat'}">${fmtPct(h.changePercent) || ''}</span>
             </div>
           </div>
 
           <div class="h-data-grid">
             <div class="hdg-item"><span>持仓数量</span><b>${h.quantity} 股</b></div>
-            <div class="hdg-item"><span>持仓成本</span><b>¥${fmtPrice(h.costPrice, h.type)}</b></div>
-            <div class="hdg-item"><span>持仓市值</span><b>${h.marketValue ? fmtMoney(h.marketValue) : '—'}</b></div>
-            <div class="hdg-item"><span>浮动盈亏</span><b class="${pnlCls}">${fmtSignedMoney(pnl)} (${fmtPct(pnlPct)})</b></div>
+            <div class="hdg-item"><span>持仓成本</span><b>${sym}${fmtPrice(h.costPrice, h.type, isUs ? 'US' : 'CN')}</b></div>
+            <div class="hdg-item"><span>持仓市值</span><b>${h.marketValue ? fmtMoney(h.marketValue, curr) : '—'}</b></div>
+            <div class="hdg-item"><span>浮动盈亏</span><b class="${pnlCls}">${fmtSignedMoney(pnl, curr)} (${fmtPct(pnlPct)})</b></div>
           </div>
 
           ${sellProfitRow}
@@ -1040,27 +1123,31 @@ function renderHoldingDetail() {
   const h = findDetailHolding();
   if (!h) return;
 
+  const isUs = (h.market === 'US') || (!h.market && !/^\d{6}$/.test(h.code));
+  const sym = isUs ? '$' : '¥';
+  const curr = isUs ? 'USD' : 'CNY';
+
   $('#hdName').textContent = h.name;
-  $('#hdSub').textContent = `${h.code} · ${h.type === 'etf' ? 'ETF' : '股票'} ｜ ${h.accountName || '默认账户'}`;
+  $('#hdSub').textContent = `${h.code} · ${isUs ? '🇺🇸 美股' : '🇨🇳 中国'} · ${h.type === 'etf' ? 'ETF' : '股票'} ｜ ${h.accountName || '默认账户'}`;
   
   const chip = $('#hdChip');
   chip.textContent = '🟢 持仓中';
   chip.className = 'chip chip-holding';
 
-  const priceStr = fmtPrice(h.currentPrice, h.type);
-  $('#hdPrice').textContent = priceStr ? `¥${priceStr}` : '暂无行情';
+  const priceStr = fmtPrice(h.currentPrice, h.type, isUs ? 'US' : 'CN');
+  $('#hdPrice').textContent = priceStr ? `${sym}${priceStr}` : '暂无行情';
   const pct = fmtPct(h.changePercent);
   $('#hdChange').textContent = pct ? `${h.changePercent > 0 ? '↑' : h.changePercent < 0 ? '↓' : ''} ${pct}` : '';
   $('#hdChange').className = h.changePercent == null ? 'flat' : h.changePercent > 0 ? 'up' : h.changePercent < 0 ? 'down' : 'flat';
 
   $('#hdQuantity').textContent = `${h.quantity} 股`;
-  $('#hdCostPrice').textContent = `¥${fmtPrice(h.costPrice, h.type)}`;
-  $('#hdCostAmount').textContent = fmtMoney(h.costAmount || 0);
-  $('#hdMarketValue').textContent = h.marketValue ? fmtMoney(h.marketValue) : '—';
+  $('#hdCostPrice').textContent = `${sym}${fmtPrice(h.costPrice, h.type, isUs ? 'US' : 'CN')}`;
+  $('#hdCostAmount').textContent = fmtMoney(h.costAmount || 0, curr);
+  $('#hdMarketValue').textContent = h.marketValue ? fmtMoney(h.marketValue, curr) : '—';
   
   const pnl = h.floatingPnL || 0;
   const pnlPct = h.floatingPnLPct || 0;
-  $('#hdFloatingPnL').textContent = fmtSignedMoney(pnl);
+  $('#hdFloatingPnL').textContent = fmtSignedMoney(pnl, curr);
   $('#hdFloatingPnL').className = pnl > 0 ? 'text-up' : pnl < 0 ? 'text-down' : 'flat';
   $('#hdFloatingPct').textContent = fmtPct(pnlPct);
   $('#hdFloatingPct').className = pnlPct > 0 ? 'text-up' : pnlPct < 0 ? 'text-down' : 'flat';
@@ -1068,9 +1155,9 @@ function renderHoldingDetail() {
   // 理论回本价格 (盈亏平衡点)
   const bkPriceEl = $('#hdBreakevenPrice');
   if (h.breakevenPrice) {
-    bkPriceEl.textContent = `¥${fmtPrice(h.breakevenPrice, h.type)}`;
+    bkPriceEl.textContent = `${sym}${fmtPrice(h.breakevenPrice, h.type, isUs ? 'US' : 'CN')}`;
   } else {
-    bkPriceEl.textContent = `¥${fmtPrice(h.costPrice, h.type)} (未计费用)`;
+    bkPriceEl.textContent = `${sym}${fmtPrice(h.costPrice, h.type, isUs ? 'US' : 'CN')} (未计费用)`;
   }
 
   // 9档情景盈亏测算表
@@ -1082,9 +1169,9 @@ function renderHoldingDetail() {
         const pnlCls = sc.floatingPnL > 0 ? 'text-up' : sc.floatingPnL < 0 ? 'text-down' : 'flat';
         return `<tr class="${isCurrent ? 'current-row' : ''}">
           <td>${sc.percent > 0 ? '+' : ''}${sc.percent}%${isCurrent ? ' (当前)' : ''}</td>
-          <td>¥${fmtPrice(sc.price, h.type)}</td>
-          <td>${fmtMoney(sc.marketValue || 0)}</td>
-          <td class="${pnlCls}">${fmtSignedMoney(sc.floatingPnL || 0)}</td>
+          <td>${sym}${fmtPrice(sc.price, h.type, isUs ? 'US' : 'CN')}</td>
+          <td>${fmtMoney(sc.marketValue || 0, curr)}</td>
+          <td class="${pnlCls}">${fmtSignedMoney(sc.floatingPnL || 0, curr)}</td>
           <td class="${pnlCls}">${fmtPct(sc.floatingPnLPct || 0)}</td>
         </tr>`;
       })
@@ -1296,6 +1383,10 @@ async function loadAndRenderPlan(code) {
 }
 
 function renderPlanAndPvs(h) {
+  const isUs = (h.market === 'US') || (!h.market && !/^\d{6}$/.test(h.code));
+  const sym = isUs ? '$' : '¥';
+  const curr = isUs ? 'USD' : 'CNY';
+
   const plan = state.plans[h.code] || {};
   const targetQty = plan.targetQuantity || h.targetQuantity || (h.quantity * 2);
   const planProg = targetQty > 0 ? round((h.quantity / targetQty) * 100, 1) : 100;
@@ -1305,12 +1396,12 @@ function renderPlanAndPvs(h) {
   $('#hdPlanReasons').textContent = reasons || '长期关注';
   $('#hdPlanTargetQty').textContent = `${targetQty} 股 (还差 ${Math.max(0, targetQty - h.quantity)} 股)`;
   $('#hdPlanProgress').textContent = `${planProg}%`;
-  $('#hdPlanAmount').textContent = plannedAmt ? fmtMoney(plannedAmt) : '未设置';
+  $('#hdPlanAmount').textContent = plannedAmt ? fmtMoney(plannedAmt, curr) : '未设置';
 
   // 计划 vs 实际
   const planBuy = plan.planBuyPrice || h.buyPrice;
-  $('#pvsPlanBuy').textContent = planBuy ? `¥${fmtPrice(planBuy, h.type)}` : '未设买入价';
-  $('#pvsActualCost').textContent = `¥${fmtPrice(h.costPrice, h.type)}`;
+  $('#pvsPlanBuy').textContent = planBuy ? `${sym}${fmtPrice(planBuy, h.type, isUs ? 'US' : 'CN')}` : '未设买入价';
+  $('#pvsActualCost').textContent = `${sym}${fmtPrice(h.costPrice, h.type, isUs ? 'US' : 'CN')}`;
 
   const pvsDevEl = $('#pvsDeviation');
   if (planBuy && h.costPrice) {
@@ -1327,7 +1418,7 @@ function renderPlanAndPvs(h) {
   const buyList = $('#hdBuyLevelsList');
   if (Array.isArray(plan.buyLevels) && plan.buyLevels.length) {
     buyBox.hidden = false;
-    buyList.innerHTML = plan.buyLevels.map((l, i) => `<div class="lv-row"><span>第 ${i + 1} 档：¥${l.price}</span><b>投入 ¥${l.amount}</b></div>`).join('');
+    buyList.innerHTML = plan.buyLevels.map((l, i) => `<div class="lv-row"><span>第 ${i + 1} 档：${sym}${l.price}</span><b>投入 ${sym}${l.amount}</b></div>`).join('');
   } else {
     buyBox.hidden = true;
   }
@@ -1336,7 +1427,7 @@ function renderPlanAndPvs(h) {
   const sellList = $('#hdSellLevelsList');
   if (Array.isArray(plan.sellLevels) && plan.sellLevels.length) {
     sellBox.hidden = false;
-    sellList.innerHTML = plan.sellLevels.map((l, i) => `<div class="lv-row"><span>第 ${i + 1} 档：¥${l.price}</span><b>卖出 ${l.percent}%</b></div>`).join('');
+    sellList.innerHTML = plan.sellLevels.map((l, i) => `<div class="lv-row"><span>第 ${i + 1} 档：${sym}${l.price}</span><b>卖出 ${l.percent}%</b></div>`).join('');
   } else {
     sellBox.hidden = true;
   }
@@ -1437,11 +1528,14 @@ async function loadAndRenderTouches(code, prefix = 'hd') {
         thStatus.textContent = isRet ? '已回落/回升' : '仍处于目标区';
         thStatus.className = `th-status-chip ${isRet ? 'returned' : 'active'}`;
       }
-      if (thTargetP) thTargetP.textContent = `¥${fmtPrice(latest.targetPrice, latest.type)}`;
-      if (thTriggerP) thTriggerP.textContent = `¥${fmtPrice(latest.triggerPrice, latest.type)}`;
+      const isLatestUs = isUsStock(latest);
+      const latestSym = isLatestUs ? '$' : '¥';
+      const latestMarket = isLatestUs ? 'US' : 'CN';
+      if (thTargetP) thTargetP.textContent = `${latestSym}${fmtPrice(latest.targetPrice, latest.type, latestMarket)}`;
+      if (thTriggerP) thTriggerP.textContent = `${latestSym}${fmtPrice(latest.triggerPrice, latest.type, latestMarket)}`;
       if (thDetectedAt) thDetectedAt.textContent = fmtFullDateTime(latest.detectedAt || latest.triggeredAt);
       if (thMarketTime) thMarketTime.textContent = fmtFullDateTime(latest.marketDataTime);
-      if (thCurPrice) thCurPrice.textContent = latest.currentPriceNow ? `¥${fmtPrice(latest.currentPriceNow, latest.type)}` : '—';
+      if (thCurPrice) thCurPrice.textContent = latest.currentPriceNow ? `${latestSym}${fmtPrice(latest.currentPriceNow, latest.type, latestMarket)}` : '—';
       if (thPostReturn && latest.postTouchReturnPct != null) {
         const ret = latest.postTouchReturnPct;
         thPostReturn.textContent = `${ret > 0 ? '+' : ''}${ret.toFixed(2)}%`;
@@ -1450,7 +1544,7 @@ async function loadAndRenderTouches(code, prefix = 'hd') {
       if (thProfitTxt) {
         if (latest.theoreticalProfit != null) {
           thProfitTxt.hidden = false;
-          thProfitTxt.innerHTML = `持仓触达理论利润 <b class="${latest.theoreticalProfit > 0 ? 'text-up' : 'text-down'}">${fmtSignedMoney(latest.theoreticalProfit)}</b>`;
+          thProfitTxt.innerHTML = `持仓触达理论利润 <b class="${latest.theoreticalProfit > 0 ? 'text-up' : 'text-down'}">${fmtSignedMoney(latest.theoreticalProfit, isLatestUs ? 'USD' : 'CNY')}</b>`;
         } else {
           thProfitTxt.hidden = true;
         }
@@ -1460,16 +1554,27 @@ async function loadAndRenderTouches(code, prefix = 'hd') {
     }
 
     // 3. 历史记录列表
+    const dtAcc = $(`#${prefix === 'dt' ? 'dt' : 'hd'}HistoryAccordion`);
+    const dtAccTitle = $(`#${prefix === 'dt' ? 'dt' : 'hd'}HistoryAccTitle`);
+
     if (!items.length) {
       listEl.innerHTML = '';
       if (emptyEl) emptyEl.hidden = false;
+      if (dtAcc) dtAcc.hidden = true;
       return;
     }
     if (emptyEl) emptyEl.hidden = true;
+    if (dtAcc) {
+      dtAcc.hidden = false;
+      if (dtAccTitle) dtAccTitle.textContent = `查看全部历史触达 (共 ${items.length} 次)`;
+    }
 
     listEl.innerHTML = items
       .map((t) => {
         const isBuy = t.alertType === 'buy';
+        const isItemUs = isUsStock(t);
+        const itemSym = isItemUs ? '$' : '¥';
+        const itemMarket = isItemUs ? 'US' : 'CN';
         const postPnl = t.postTouchReturnPct != null ? `${t.postTouchReturnPct > 0 ? '+' : ''}${t.postTouchReturnPct.toFixed(2)}%` : '—';
         const postCls = t.postTouchReturnPct > 0 ? 'text-up' : t.postTouchReturnPct < 0 ? 'text-down' : 'flat';
         return `<div class="touch-card">
@@ -1478,8 +1583,8 @@ async function loadAndRenderTouches(code, prefix = 'hd') {
             <span class="tc-time">${fmtFullDateTime(t.triggeredAt)}</span>
           </div>
           <div class="tc-grid">
-            <div><span>目标价</span> <b>¥${fmtPrice(t.targetPrice, t.type)}</b></div>
-            <div><span>触达检测</span> <b>¥${fmtPrice(t.triggerPrice, t.type)}</b></div>
+            <div><span>目标价</span> <b>${itemSym}${fmtPrice(t.targetPrice, t.type, itemMarket)}</b></div>
+            <div><span>触达检测</span> <b>${itemSym}${fmtPrice(t.triggerPrice, t.type, itemMarket)}</b></div>
             <div><span>触达后变动</span> <b class="${postCls}">${postPnl}</b></div>
           </div>
           <div class="tc-foot">
@@ -1509,6 +1614,9 @@ async function loadAndRenderTouches(code, prefix = 'hd') {
 function calcSimBuy() {
   const h = findDetailHolding();
   if (!h) return;
+  const isUs = (h.market === 'US') || (!h.market && !/^\d{6}$/.test(h.code));
+  const sym = isUs ? '$' : '¥';
+  const curr = isUs ? 'USD' : 'CNY';
   const p = parseFloat($('#simBuyPrice').value);
   const a = parseFloat($('#simBuyAmount').value);
   if (!Number.isFinite(p) || p <= 0 || !Number.isFinite(a) || a <= 0) return;
@@ -1521,13 +1629,15 @@ function calcSimBuy() {
 
   $('#sbrAddShares').textContent = `${addShares} 股`;
   $('#sbrTotalShares').textContent = `${totalShares} 股`;
-  $('#sbrTotalCost').textContent = fmtMoney(totalCost);
-  $('#sbrNewCost').textContent = `¥${newCostPrice.toFixed(2)}/股 (降 ¥${(h.costPrice - newCostPrice).toFixed(2)})`;
+  $('#sbrTotalCost').textContent = fmtMoney(totalCost, curr);
+  $('#sbrNewCost').textContent = `${sym}${newCostPrice.toFixed(2)}/股 (降 ${sym}${(h.costPrice - newCostPrice).toFixed(2)})`;
 }
 
 function calcSimSell() {
   const h = findDetailHolding();
   if (!h) return;
+  const isUs = (h.market === 'US') || (!h.market && !/^\d{6}$/.test(h.code));
+  const curr = isUs ? 'USD' : 'CNY';
   const p = parseFloat($('#simSellPrice').value);
   const qty = parseInt($('#simSellShares').value, 10);
   if (!Number.isFinite(p) || p <= 0 || !Number.isFinite(qty) || qty <= 0) return;
@@ -1537,9 +1647,9 @@ function calcSimSell() {
   const profit = round(totalAmount - costAmount, 2);
   const returnPct = costAmount > 0 ? round((profit / costAmount) * 100, 2) : 0;
 
-  $('#ssrTotalAmount').textContent = fmtMoney(totalAmount);
-  $('#ssrCostAmount').textContent = fmtMoney(costAmount);
-  $('#ssrProfitVal').textContent = fmtSignedMoney(profit);
+  $('#ssrTotalAmount').textContent = fmtMoney(totalAmount, curr);
+  $('#ssrCostAmount').textContent = fmtMoney(costAmount, curr);
+  $('#ssrProfitVal').textContent = fmtSignedMoney(profit, curr);
   $('#ssrReturnPct').textContent = fmtPct(returnPct);
 }
 
@@ -1702,8 +1812,12 @@ function openDetail(watch) {
 function renderDetail() {
   const w = findDetailWatch();
   if (!w) return;
+  const isUs = isUsStock(w);
+  const sym = isUs ? '$' : '¥';
+  const marketTag = isUs ? '🇺🇸 美股' : '🇨🇳 中国';
+
   $('#detailName').textContent = w.name;
-  $('#detailSub').textContent = `${w.code} · ${w.type === 'etf' ? 'ETF' : '股票'}`;
+  $('#detailSub').textContent = `${w.code} · ${marketTag} · ${w.type === 'etf' ? 'ETF' : '股票'}`;
 
   const live = typeof w.currentPrice === 'number';
   const inBuy = live && w.buyPrice != null && w.currentPrice <= w.buyPrice;
@@ -1715,9 +1829,9 @@ function renderDetail() {
   else if (!w.enabled) { chip.textContent = '已暂停'; chip.className = 'chip chip-off'; }
   else { chip.textContent = '监控中'; chip.className = 'chip chip-on'; }
 
-  const priceStr = fmtPrice(w.currentPrice, w.type);
+  const priceStr = fmtPrice(w.currentPrice, w.type, w.market);
   const priceEl = $('#detailPrice');
-  priceEl.textContent = priceStr == null ? '暂无行情' : `¥${priceStr}`;
+  priceEl.textContent = priceStr == null ? '暂无行情' : `${sym}${priceStr}`;
   priceEl.classList.toggle('na', !live);
 
   const pct = fmtPct(w.changePercent);
@@ -1727,11 +1841,11 @@ function renderDetail() {
 
   const banner = $('#detailBanner');
   if (w.enabled && inBuy) {
-    banner.textContent = `🔔 现价 ¥${fmtPrice(w.currentPrice, w.type)} 已达买入价 ¥${fmtPrice(w.buyPrice, w.type)}，留意买入机会`;
+    banner.textContent = `🔔 现价 ${sym}${fmtPrice(w.currentPrice, w.type, w.market)} 已达买入价 ${sym}${fmtPrice(w.buyPrice, w.type, w.market)}，留意买入机会`;
     banner.className = 'detail-banner buy';
     banner.hidden = false;
   } else if (w.enabled && inSell) {
-    banner.textContent = `🔔 现价 ¥${fmtPrice(w.currentPrice, w.type)} 已达卖出价 ¥${fmtPrice(w.sellPrice, w.type)}，留意卖出机会`;
+    banner.textContent = `🔔 现价 ${sym}${fmtPrice(w.currentPrice, w.type, w.market)} 已达卖出价 ${sym}${fmtPrice(w.sellPrice, w.type, w.market)}，留意卖出机会`;
     banner.className = 'detail-banner sell';
     banner.hidden = false;
   } else {
@@ -1739,30 +1853,299 @@ function renderDetail() {
   }
 
   $('#distRow').innerHTML = distCardHtml(w, 'buy') + distCardHtml(w, 'sell');
-  $('#metricLast').textContent = priceStr == null ? '—' : `¥${priceStr}`;
+  $('#metricLast').textContent = priceStr == null ? '—' : `${sym}${priceStr}`;
   $('#detailToggle').textContent = w.enabled ? '⏸ 暂停监控' : '▶️ 恢复监控';
   renderDetailTarget(w);
+  renderDetailNote(w);
   loadAndRenderTouches(w.code, 'dt');
-  loadDetailFundamentals(w);
-  loadMarketOverview();
-  renderDetailMarketCompare(w);
+  renderDetailHolding(w);
+  if (!isUs) {
+    loadDetailFundamentals(w);
+    loadMarketOverview();
+    renderDetailMarketCompare(w);
+  } else {
+    const fundAcc = $('#accFundamentals');
+    if (fundAcc) fundAcc.hidden = true;
+    const compareAcc = $('#accMarketCompare');
+    if (compareAcc) compareAcc.hidden = true;
+  }
+}
+
+/* ---------------- 📝 详情页投资备注渲染 ---------------- */
+function renderDetailNote(w) {
+  const topPill = $('#btnDetailTopNote');
+  const topText = $('#detailTopNoteText');
+  const card = $('#detailNoteCard');
+  const empty = $('#detailNoteEmpty');
+  const contentEl = $('#detailNoteContent');
+  const timeEl = $('#detailNoteTime');
+  const badgeEl = $('#detailNoteBadge');
+  const toggleBtn = $('#btnDetailToggleNote');
+
+  if (!w) return;
+
+  const holdings = (state.portfolio && state.portfolio.holdings) || [];
+  const h = holdings.find((x) => x.code === w.code);
+  const noteText = (w.note || (h && h.note) || '').trim();
+
+  // 1. 顶部标的名称旁微型胶囊
+  if (topPill && topText) {
+    if (noteText) {
+      topPill.classList.add('has-note');
+      topText.textContent = '已备注';
+      topPill.title = '已有个人备注，点击编辑';
+    } else {
+      topPill.classList.remove('has-note');
+      topText.textContent = '备注';
+      topPill.title = '添加个人投资备注';
+    }
+  }
+
+  // 2. 详情页正文备注卡片
+  if (card && empty && contentEl) {
+    if (noteText) {
+      card.hidden = false;
+      empty.hidden = true;
+      contentEl.textContent = noteText;
+      contentEl.classList.add('clamp');
+
+      if (badgeEl) {
+        badgeEl.textContent = '已记录';
+        badgeEl.className = 'sec-badge blue';
+      }
+
+      if (timeEl) {
+        timeEl.textContent = w.noteUpdatedAt
+          ? `最后修改：${fmtFullDateTime(w.noteUpdatedAt)}`
+          : (h && h.updatedAt ? `最后修改：${fmtFullDateTime(h.updatedAt)}` : '');
+      }
+
+      if (toggleBtn) {
+        const lines = noteText.split('\n');
+        if (lines.length > 3 || noteText.length > 90) {
+          toggleBtn.hidden = false;
+          toggleBtn.textContent = '查看全部';
+        } else {
+          toggleBtn.hidden = true;
+        }
+      }
+    } else {
+      card.hidden = true;
+      empty.hidden = false;
+      if (badgeEl) {
+        badgeEl.textContent = '未记录';
+        badgeEl.className = 'sec-badge gray';
+      }
+    }
+  }
+}
+
+/* ---------------- 📝 投资备注弹窗管理 ---------------- */
+function openWatchRemarkModal(w) {
+  if (!w) w = findDetailWatch();
+  if (!w) return;
+
+  state.editingRemarkWatch = w;
+  const holdings = (state.portfolio && state.portfolio.holdings) || [];
+  const h = holdings.find((x) => x.code === w.code);
+  const noteVal = w.note || (h && h.note) || '';
+
+  const nameEl = $('#watchRemarkTargetName');
+  const inputEl = $('#watchRemarkInput');
+  const countEl = $('#watchRemarkCharCount');
+  const errEl = $('#watchRemarkError');
+
+  if (nameEl) nameEl.textContent = `${w.name} (${w.code}) · ${w.type === 'etf' ? 'ETF' : '股票'}`;
+  if (inputEl) {
+    inputEl.value = noteVal;
+    inputEl.selectionStart = inputEl.selectionEnd = inputEl.value.length;
+  }
+  if (countEl) countEl.textContent = noteVal.length;
+  if (errEl) errEl.hidden = true;
+
+  $('#watchRemarkModal').hidden = false;
+  setTimeout(() => {
+    if (inputEl) inputEl.focus();
+  }, 50);
+}
+
+async function saveWatchRemark() {
+  const w = state.editingRemarkWatch || findDetailWatch();
+  if (!w) return;
+
+  const inputEl = $('#watchRemarkInput');
+  const errEl = $('#watchRemarkError');
+  const btn = $('#saveWatchRemarkBtn');
+  const content = inputEl ? inputEl.value.trim().slice(0, 1000) : '';
+
+  if (errEl) errEl.hidden = true;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '正在保存…';
+  }
+
+  try {
+    const promises = [];
+
+    // 1. 若标的在监控列表，更新 watchlist
+    if (w._id) {
+      promises.push(call('ths-update-watch', { _id: w._id, note: content }));
+    }
+
+    // 2. 若标的在持仓表，同步更新 holdings
+    const holdings = (state.portfolio && state.portfolio.holdings) || [];
+    const h = holdings.find((x) => x.code === w.code);
+    if (h && h._id) {
+      promises.push(call('ths-update-holding', { _id: h._id, note: content }));
+    }
+
+    if (!promises.length) {
+      throw new Error('未找到该标的的关联记录');
+    }
+
+    const results = await Promise.all(promises);
+    const hasError = results.find((r) => !r || !r.ok);
+    if (hasError) throw new Error(hasError.error || '保存失败');
+
+    // 本地内存同步更新
+    const now = new Date();
+    w.note = content;
+    w.noteUpdatedAt = content ? now : null;
+    if (h) {
+      h.note = content;
+      h.updatedAt = now;
+    }
+
+    // 刷新详情页与首页
+    renderDetailNote(w);
+    renderWatches();
+
+    $('#watchRemarkModal').hidden = true;
+    toast(content ? '投资备注已保存 ✅' : '投资备注已清空');
+  } catch (e) {
+    if (errEl) {
+      errEl.textContent = `保存失败: ${e.message}`;
+      errEl.hidden = false;
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '保存备注';
+    }
+  }
+}
+
+function clearWatchRemark() {
+  const inputEl = $('#watchRemarkInput');
+  if (!inputEl) return;
+  if (!inputEl.value.trim()) return;
+
+  if (confirm('确定清空当前标的的投资备注吗？\n（点击保存后将正式生效）')) {
+    inputEl.value = '';
+    const countEl = $('#watchRemarkCharCount');
+    if (countEl) countEl.textContent = '0';
+    inputEl.focus();
+  }
+}
+
+/* ---------------- 💼 详情页持仓卡片渲染 ---------------- */
+function renderDetailHolding(w) {
+  const box = $('#detailHoldingBox');
+  const badge = $('#detailHoldingBadge');
+  if (!box || !w) return;
+
+  const holdings = (state.portfolio && state.portfolio.holdings) || [];
+  const h = holdings.find((x) => x.code === w.code);
+
+  if (!h) {
+    if (badge) {
+      badge.textContent = '暂未持仓';
+      badge.className = 'sec-badge gray';
+    }
+    box.innerHTML = `
+      <div class="dh-empty-row">
+        <span>当前尚未录入该标的的持仓记录</span>
+        <button type="button" class="dh-action-btn" id="btnDetailAddHolding">＋ 录入持仓</button>
+      </div>`;
+    const btn = $('#btnDetailAddHolding');
+    if (btn) {
+      btn.onclick = () => {
+        openHoldingForm({
+          type: w.type || 'stock',
+          code: w.code,
+          name: w.name,
+          costPrice: typeof w.currentPrice === 'number' ? w.currentPrice : '',
+        });
+      };
+    }
+    return;
+  }
+
+  // 用户持仓该标的
+  const isUs = isUsStock(w);
+  const sym = isUs ? '$' : '¥';
+  const market = isUs ? 'US' : 'CN';
+  const qty = h.quantity || 0;
+  const costPrice = h.costPrice || 0;
+  const curPrice = typeof w.currentPrice === 'number' ? w.currentPrice : costPrice;
+  const mval = curPrice * qty;
+  const costAmt = h.costAmount || costPrice * qty;
+  const pnl = mval - costAmt;
+  const pnlPct = costAmt > 0 ? (pnl / costAmt) * 100 : 0;
+  const pnlCls = pnl > 0.001 ? 'up' : pnl < -0.001 ? 'down' : 'flat';
+
+  if (badge) {
+    badge.textContent = `🟢 持有 ${qty}股 (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)`;
+    badge.className = `sec-badge ${pnl >= 0 ? 'green' : 'red'}`;
+  }
+
+  box.innerHTML = `
+    <div class="dh-grid">
+      <div class="dh-item">
+        <span>持仓数量</span>
+        <b>${qty}股</b>
+      </div>
+      <div class="dh-item">
+        <span>持仓成本</span>
+        <b>${sym}${fmtPrice(costPrice, w.type, market)}</b>
+      </div>
+      <div class="dh-item">
+        <span>当前市值</span>
+        <b>${sym}${mval.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+      </div>
+      <div class="dh-item">
+        <span>浮动盈亏</span>
+        <b class="${pnlCls}">${pnl >= 0 ? '+' : ''}${sym}${pnl.toFixed(2)} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)</b>
+      </div>
+    </div>
+    <div class="dh-empty-row" style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(0,0,0,0.05);">
+      <span style="font-size: 11px; color: var(--text-3);">持仓账户：${esc(h.accountName || '默认账户')}</span>
+      <button type="button" class="dh-action-btn" id="btnDetailEditHolding">✏️ 编辑持仓</button>
+    </div>`;
+
+  const editBtn = $('#btnDetailEditHolding');
+  if (editBtn) {
+    editBtn.onclick = () => openHoldingForm(h);
+  }
 }
 
 function distCardHtml(w, side) {
   const line = side === 'buy' ? w.buyPrice : w.sellPrice;
   if (line == null) return '';
+  const isUs = isUsStock(w);
+  const sym = isUs ? '$' : '¥';
   const label = side === 'buy' ? '买入价' : '卖出价';
   if (typeof w.currentPrice !== 'number') {
-    return `<div class="dist-card ${side}"><div class="dist-label">${label} <b>¥${fmtPrice(line, w.type)}</b></div><div class="dist-val st-wait">待行情</div></div>`;
+    return `<div class="dist-card ${side}"><div class="dist-label">${label} <b>${sym}${fmtPrice(line, w.type, w.market)}</b></div><div class="dist-val st-wait">待行情</div></div>`;
   }
   const hit = side === 'buy' ? w.currentPrice <= line : w.currentPrice >= line;
   if (hit) {
-    return `<div class="dist-card ${side}"><div class="dist-label">${label} <b>¥${fmtPrice(line, w.type)}</b></div><div class="dist-val ok-${side}">🟢 已达到${label}</div></div>`;
+    return `<div class="dist-card ${side}"><div class="dist-label">${label} <b>${sym}${fmtPrice(line, w.type, w.market)}</b></div><div class="dist-val ok-${side}">🟢 已达到${label}</div></div>`;
   }
   const diff = Math.abs(line - w.currentPrice);
   const pct = (diff / w.currentPrice) * 100;
   const actionText = side === 'buy' ? '还需下跌' : '还需上涨';
-  return `<div class="dist-card ${side}"><div class="dist-label">${label} <b>¥${fmtPrice(line, w.type)}</b></div><div class="dist-val near-${side}">${side === 'buy' ? '🟢' : '🟡'} ${actionText} ¥${fmtPrice(diff, w.type)}（${pct.toFixed(1)}%）</div></div>`;
+  return `<div class="dist-card ${side}"><div class="dist-label">${label} <b>${sym}${fmtPrice(line, w.type, w.market)}</b></div><div class="dist-val near-${side}">${side === 'buy' ? '🟢' : '🟡'} ${actionText} ${sym}${fmtPrice(diff, w.type, w.market)}（${pct.toFixed(1)}%）</div></div>`;
 }
 
 function renderDetailTarget(w) {
@@ -1771,15 +2154,17 @@ function renderDetailTarget(w) {
     box.hidden = true;
     return;
   }
+  const isUs = isUsStock(w);
+  const sym = isUs ? '$' : '¥';
   const t = w.targetPrice;
   const parts = [];
-  if (w.buyDiscount != null) parts.push(`买入价 = 目标 × ${pctOffset(w.buyDiscount)} → ¥${fmtPrice(w.buyPrice, w.type)}`);
-  if (w.sellDiscount != null) parts.push(`卖出价 = 目标 × ${pctOffset(w.sellDiscount)} → ¥${fmtPrice(w.sellPrice, w.type)}`);
+  if (w.buyDiscount != null) parts.push(`买入价 = 目标 × ${pctOffset(w.buyDiscount)} → ${sym}${fmtPrice(w.buyPrice, w.type, w.market)}`);
+  if (w.sellDiscount != null) parts.push(`卖出价 = 目标 × ${pctOffset(w.sellDiscount)} → ${sym}${fmtPrice(w.sellPrice, w.type, w.market)}`);
   if (!parts.length) {
     box.hidden = true;
     return;
   }
-  box.innerHTML = `<p class="target-title">🎯 目标价 <b>¥${fmtPrice(t, w.type)}</b></p>
+  box.innerHTML = `<p class="target-title">🎯 目标价 <b>${sym}${fmtPrice(t, w.type, w.market)}</b></p>
     <p class="hint">${parts.join(' ｜ ')}</p>`;
   box.hidden = false;
 }
@@ -1789,12 +2174,12 @@ let detailFundCache = {}; // ckey -> fundamentals
 let detailFundInflight = {}; // ckey -> Promise
 
 async function loadDetailFundamentals(w) {
-  const fundSec = $('#detailFundamentalsSection');
+  const fundAcc = $('#accFundamentals');
   if (!w || w.type === 'etf') {
-    if (fundSec) fundSec.hidden = true;
+    if (fundAcc) fundAcc.hidden = true;
     return;
   }
-  if (fundSec) fundSec.hidden = false;
+  if (fundAcc) fundAcc.hidden = false;
 
   const ckey = `fund:${w.code}`;
   if (detailFundCache[ckey]) {
@@ -1821,6 +2206,8 @@ async function loadDetailFundamentals(w) {
   $('#fundRoeName').textContent = 'ROE';
   $('#fundRoeHint').textContent = '正在获取报告期…';
 
+  if ($('#sumFundamentals')) $('#sumFundamentals').textContent = '正在获取估值与盈利数据…';
+
   if (detailFundInflight[ckey]) {
     try {
       const cached = await detailFundInflight[ckey];
@@ -1845,12 +2232,14 @@ async function loadDetailFundamentals(w) {
         $('#fundPeHint').textContent = (r && r.error) || '暂无估值数据';
         $('#fundPbHint').textContent = '暂无市净率数据';
         $('#fundRoeHint').textContent = '暂无报告期数据';
+        if ($('#sumFundamentals')) $('#sumFundamentals').textContent = '暂无估值数据';
         return null;
       }
     } catch (e) {
       $('#fundPeHint').textContent = '暂无估值数据';
       $('#fundPbHint').textContent = '暂无市净率数据';
       $('#fundRoeHint').textContent = '暂无报告期数据';
+      if ($('#sumFundamentals')) $('#sumFundamentals').textContent = '暂无估值数据';
       return null;
     } finally {
       delete detailFundInflight[ckey];
@@ -1899,6 +2288,15 @@ function renderFundamentalsData(fund) {
     roeNameEl.textContent = 'ROE';
     roeHintEl.textContent = '暂无报告期数据';
   }
+
+  // 4. 更新折叠摘要
+  const sumEl = $('#sumFundamentals');
+  if (sumEl) {
+    const peText = pe && pe.text ? `PE ${pe.text}` : 'PE —';
+    const pbText = pb && pb.text ? `PB ${pb.text}` : 'PB —';
+    const roeText = roe && roe.text ? `ROE ${roe.text}` : 'ROE —';
+    sumEl.textContent = `${peText} · ${pbText} · ${roeText}`;
+  }
 }
 
 async function loadDetailDividendData() {
@@ -1932,25 +2330,22 @@ async function loadDetailDividendData() {
 
 function renderDetailDividend(data) {
   const w = findDetailWatch();
-  const divSec = $('#detailDividendSection');
+  const accDiv = $('#accDividend');
   if (!w || !data || !data.hasDividend || !data.items || !data.items.length) {
-    if (divSec) divSec.hidden = true;
+    if (accDiv) accDiv.hidden = true;
     return;
   }
-  if (divSec) divSec.hidden = false;
+  if (accDiv) accDiv.hidden = false;
 
   const isEtf = w.type === 'etf';
-  const secTitle = divSec.querySelector('h3');
-  if (secTitle) secTitle.textContent = isEtf ? '💰 ETF 收益分配' : '💰 分红雷达';
+  const accTitle = $('#accDivTitle');
+  if (accTitle) accTitle.textContent = isEtf ? 'ETF 收益分配' : '分红雷达';
 
-  const stBadge = $('#divStabilityBadge');
   const stats = data.stats || {};
-  stBadge.textContent = stats.stabilityLabel || '历史记录';
-  stBadge.className = `sec-badge ${stats.stability === 'stable' ? 'green' : stats.stability === 'volatile' ? 'yellow' : 'gray'}`;
-
   const latest = data.latest;
   const unit = isEtf ? '/份' : '/股';
   const dec = isEtf ? 3 : 2;
+
   $('#divPerShare').textContent = latest && latest.dividendPerShare != null ? `¥${latest.dividendPerShare.toFixed(dec)}${unit}` : '—';
   $('#divCurrentYield').textContent = data.dividendYield != null ? `${data.dividendYield.toFixed(2)}%` : '—';
   $('#divBuyYield').textContent = data.buyDividendYield != null ? `${data.buyDividendYield.toFixed(2)}%` : (w.buyPrice == null ? '未设买入价' : '—');
@@ -1958,6 +2353,15 @@ function renderDetailDividend(data) {
   $('#divRecordDate').textContent = latest && latest.recordDate ? latest.recordDate : '暂无数据';
   $('#divExDate').textContent = latest && latest.exDividendDate ? latest.exDividendDate : '暂无数据';
   $('#divPayDate').textContent = latest && latest.paymentDate ? latest.paymentDate : '暂无数据';
+
+  // 更新折叠摘要
+  const sumEl = $('#sumDividend');
+  if (sumEl) {
+    const divTxt = latest && latest.dividendPerShare != null ? `每股 ¥${latest.dividendPerShare.toFixed(dec)}` : '有分红';
+    const cYears = stats.consecutiveYears ? `连续 ${stats.consecutiveYears} 年分红` : '已公布';
+    const yldTxt = data.dividendYield != null ? `股息率 ${data.dividendYield.toFixed(1)}%` : '';
+    sumEl.textContent = [divTxt, yldTxt, cYears].filter(Boolean).join(' · ');
+  }
 
   const cdEl = $('#divCountdown');
   if (data.isToday) {
@@ -2003,13 +2407,14 @@ function renderDetailDividend(data) {
 async function loadDetailData() {
   const w = findDetailWatch();
   if (!w) return null;
-  const ckey = `${w.type}:${w.code}:${w.currentPrice || 0}`;
+  const ckey = `${w.market || 'CN'}:${w.type}:${w.code}:${w.currentPrice || 0}`;
   if (detailCache[ckey]) {
     renderMetrics(detailCache[ckey]);
     return detailCache[ckey];
   }
   const r = await call('ths-get-history', {
     mode: 'detail',
+    market: w.market || 'CN',
     type: w.type,
     code: w.code,
     currentPrice: typeof w.currentPrice === 'number' ? w.currentPrice : null,
@@ -2022,40 +2427,67 @@ async function loadDetailData() {
 
 function renderMetrics(data) {
   const w = findDetailWatch();
+  const isUs = w && w.market === 'US';
+  const sym = isUs ? '$' : '¥';
   const y25 = data ? data.y2025 : null;
   const y26 = data ? data.y2026 : null;
   const m25 = $('#metricY2025');
-  m25.textContent = y25 == null ? '—' : fmtPct(y25);
-  m25.className = y25 == null ? 'flat' : y25 >= 0 ? 'up' : 'down';
+  if (m25) {
+    m25.textContent = y25 == null ? '—' : fmtPct(y25);
+    m25.className = y25 == null ? 'flat' : y25 >= 0 ? 'up' : 'down';
+  }
   const m26 = $('#metricY2026');
-  m26.textContent = y26 == null ? '—' : fmtPct(y26);
-  m26.className = y26 == null ? 'flat' : y26 >= 0 ? 'up' : 'down';
+  if (m26) {
+    m26.textContent = y26 == null ? '—' : fmtPct(y26);
+    m26.className = y26 == null ? 'flat' : y26 >= 0 ? 'up' : 'down';
+  }
 
   const high = data ? data.yearHigh : null;
   const low = data ? data.yearLow : null;
-  $('#metricYearHigh').textContent = high != null ? `¥${fmtPrice(high, w ? w.type : 'stock')}` : '—';
-  $('#metricYearLow').textContent = low != null ? `¥${fmtPrice(low, w ? w.type : 'stock')}` : '—';
+  const hEl = $('#metricYearHigh');
+  const lEl = $('#metricYearLow');
+  if (hEl) hEl.textContent = high != null ? `${sym}${fmtPrice(high, w ? w.type : 'stock', w ? w.market : 'CN')}` : '—';
+  if (lEl) lEl.textContent = low != null ? `${sym}${fmtPrice(low, w ? w.type : 'stock', w ? w.market : 'CN')}` : '—';
 
-  if (w && typeof w.currentPrice === 'number' && high) {
-    const distHigh = ((w.currentPrice - high) / high) * 100;
-    $('#metricDistHigh').textContent = fmtPct(distHigh);
-  } else {
-    $('#metricDistHigh').textContent = '—';
+  const dHighEl = $('#metricDistHigh');
+  if (dHighEl) {
+    if (w && typeof w.currentPrice === 'number' && high) {
+      const distHigh = ((w.currentPrice - high) / high) * 100;
+      dHighEl.textContent = fmtPct(distHigh);
+    } else {
+      dHighEl.textContent = '—';
+    }
   }
 
   const s20 = data ? data.stats20d : null;
   if (s20) {
-    $('#hsUpDays').textContent = `${s20.upDays}天`;
-    $('#hsDownDays').textContent = `${s20.downDays}天`;
+    const upEl = $('#hsUpDays');
+    const downEl = $('#hsDownDays');
     const flatEl = $('#hsFlatDays');
+    const probEl = $('#hsUpProb');
+    const maxUpEl = $('#hsMaxUp');
+    const maxDownEl = $('#hsMaxDown');
+    if (upEl) upEl.textContent = `${s20.upDays}天`;
+    if (downEl) downEl.textContent = `${s20.downDays}天`;
     if (flatEl) flatEl.textContent = `${s20.flatDays || 0}天`;
-    $('#hsUpProb').textContent = s20.upProb != null ? `${s20.upProb}%` : '—';
-    $('#hsMaxUp').textContent = s20.maxUp != null ? fmtPct(s20.maxUp) : '—';
-    $('#hsMaxDown').textContent = s20.maxDown != null ? fmtPct(s20.maxDown) : '—';
+    if (probEl) probEl.textContent = s20.upProb != null ? `${s20.upProb}%` : '—';
+    if (maxUpEl) maxUpEl.textContent = s20.maxUp != null ? fmtPct(s20.maxUp) : '—';
+    if (maxDownEl) maxDownEl.textContent = s20.maxDown != null ? fmtPct(s20.maxDown) : '—';
   }
-  $('#hsR5d').textContent = data && data.r5d != null ? fmtPct(data.r5d) : '—';
-  $('#hsR10d').textContent = data && data.r10d != null ? fmtPct(data.r10d) : '—';
-  $('#hsR20d').textContent = data && data.r20d != null ? fmtPct(data.r20d) : '—';
+  const r5 = $('#hsR5d');
+  const r10 = $('#hsR10d');
+  const r20 = $('#hsR20d');
+  if (r5) r5.textContent = data && data.r5d != null ? fmtPct(data.r5d) : '—';
+  if (r10) r10.textContent = data && data.r10d != null ? fmtPct(data.r10d) : '—';
+  if (r20) r20.textContent = data && data.r20d != null ? fmtPct(data.r20d) : '—';
+
+  // 更新历史行情折叠摘要
+  const sumHist = $('#sumHist');
+  if (sumHist) {
+    const y26Txt = y26 != null ? `2026年至今 ${fmtPct(y26)}` : '2026年至今 —';
+    const upTxt = s20 ? `近20日上涨 ${s20.upDays}天` : '';
+    sumHist.textContent = [y26Txt, upTxt].filter(Boolean).join(' · ');
+  }
 
   // 52 周滚动极值与位置指示
   render52wData(data && data.w52, w);
@@ -2063,14 +2495,16 @@ function renderMetrics(data) {
 
 /* ---------------- 📈 近52周价格渲染 ---------------- */
 function render52wData(w52, w) {
-  const sec = $('#detail52wSection');
-  if (!sec) return;
+  const acc = $('#acc52w');
+  if (!acc) return;
   if (!w) {
-    sec.hidden = true;
+    acc.hidden = true;
     return;
   }
-  sec.hidden = false;
+  acc.hidden = false;
 
+  const isUs = w && w.market === 'US';
+  const sym = isUs ? '$' : '¥';
   const type = w.type || 'stock';
   const highEl = $('#w52High');
   const lowEl = $('#w52Low');
@@ -2084,26 +2518,25 @@ function render52wData(w52, w) {
   const barHigh = $('#w52BarHigh');
   const barPos = $('#w52BarPos');
   const barFill = $('#w52BarFill');
-  const badgeEl = $('#w52Badge');
+  const sumEl = $('#sum52w');
 
   if (!w52 || w52.sufficient === false) {
-    if (badgeEl) badgeEl.textContent = '数据不足52周';
-    if (highEl) highEl.textContent = w52 && w52.high != null ? `¥${fmtPrice(w52.high, type)}` : '—';
-    if (lowEl) lowEl.textContent = w52 && w52.low != null ? `¥${fmtPrice(w52.low, type)}` : '—';
-    if (curEl) curEl.textContent = typeof w.currentPrice === 'number' ? `¥${fmtPrice(w.currentPrice, type)}` : '—';
+    if (highEl) highEl.textContent = w52 && w52.high != null ? `${sym}${fmtPrice(w52.high, type, w.market)}` : '—';
+    if (lowEl) lowEl.textContent = w52 && w52.low != null ? `${sym}${fmtPrice(w52.low, type, w.market)}` : '—';
+    if (curEl) curEl.textContent = typeof w.currentPrice === 'number' ? `${sym}${fmtPrice(w.currentPrice, type, w.market)}` : '—';
     if (distHighEl) { distHighEl.textContent = '数据不足'; distHighEl.className = 'w52-hint'; }
     if (distLowEl) { distLowEl.textContent = '数据不足'; distLowEl.className = 'w52-hint'; }
     if (curHintEl) curHintEl.textContent = '当前价格';
     if (barBox) barBox.hidden = true;
     if (noteEl) noteEl.textContent = '⚠️ 当前标的上市交易不满52周，历史数据不足以统计完整52周滚动周期。';
+    if (sumEl) sumEl.textContent = '当前历史数据不足52周';
     return;
   }
 
-  if (badgeEl) badgeEl.textContent = w52.intraday ? '滚动52周 · 含盘中' : '以今天向前滚动52周';
   if (barBox) barBox.hidden = false;
 
   // 1. 最高价
-  if (highEl) highEl.textContent = w52.high != null ? `¥${fmtPrice(w52.high, type)}` : '—';
+  if (highEl) highEl.textContent = w52.high != null ? `${sym}${fmtPrice(w52.high, type, w.market)}` : '—';
   if (distHighEl) {
     if (w52.distHigh != null) {
       distHighEl.textContent = `距最高 ${fmtPct(w52.distHigh)}`;
@@ -2115,7 +2548,7 @@ function render52wData(w52, w) {
   }
 
   // 2. 最低价
-  if (lowEl) lowEl.textContent = w52.low != null ? `¥${fmtPrice(w52.low, type)}` : '—';
+  if (lowEl) lowEl.textContent = w52.low != null ? `${sym}${fmtPrice(w52.low, type, w.market)}` : '—';
   if (distLowEl) {
     if (w52.distLow != null) {
       distLowEl.textContent = `距最低 ${fmtPct(w52.distLow)}`;
@@ -2128,14 +2561,15 @@ function render52wData(w52, w) {
 
   // 3. 当前价格
   const cur = typeof w52.currentPrice === 'number' ? w52.currentPrice : (typeof w.currentPrice === 'number' ? w.currentPrice : null);
-  if (curEl) curEl.textContent = cur != null ? `¥${fmtPrice(cur, type)}` : '—';
+  if (curEl) curEl.textContent = cur != null ? `${sym}${fmtPrice(cur, type, w.market)}` : '—';
   if (curHintEl) curHintEl.textContent = w52.intraday ? '盘中实时价' : '最新收盘价';
 
   // 4. 区间位置指示条
-  if (barLow) barLow.textContent = `最低 ¥${fmtPrice(w52.low, type)}`;
-  if (barHigh) barHigh.textContent = `最高 ¥${fmtPrice(w52.high, type)}`;
+  if (barLow) barLow.textContent = `最低 ${sym}${fmtPrice(w52.low, type, w.market)}`;
+  if (barHigh) barHigh.textContent = `最高 ${sym}${fmtPrice(w52.high, type, w.market)}`;
+  let posPct = null;
   if (cur != null && w52.high != null && w52.low != null && w52.high > w52.low) {
-    const posPct = Math.max(0, Math.min(100, ((cur - w52.low) / (w52.high - w52.low)) * 100));
+    posPct = Math.max(0, Math.min(100, ((cur - w52.low) / (w52.high - w52.low)) * 100));
     if (barFill) barFill.style.width = `${posPct.toFixed(1)}%`;
     if (barPos) barPos.textContent = `位于 52 周区间 ${posPct.toFixed(0)}% 分位`;
   } else {
@@ -2146,9 +2580,17 @@ function render52wData(w52, w) {
   if (noteEl) {
     noteEl.textContent = `统计范围：${w52.startDate || '—'} ～ ${w52.endDate || '今天'}（共 ${w52.tradeDays || 0} 个有效交易日）；以今天为基准向前滚动52周，每天随时间推移更新，与「2026年至今」严格区分。`;
   }
+
+  // 5. 更新折叠摘要
+  if (sumEl) {
+    const hTxt = `最高 ${sym}${fmtPrice(w52.high, type, w.market)}`;
+    const lTxt = `最低 ${sym}${fmtPrice(w52.low, type, w.market)}`;
+    const posTxt = posPct != null ? `处于 ${posPct.toFixed(0)}% 分位` : '';
+    sumEl.textContent = [hTxt, lTxt, posTxt].filter(Boolean).join(' · ');
+  }
 }
 
-/* ---------------- 📊 今日市场四大指数 (沪指/深指/创指/科创50) ---------------- */
+/* ---------------- 📊 今日市场核心指数 (中国 4 大指数 + 美国 4 大核心指数) ---------------- */
 let marketOverviewCache = null;
 let marketOverviewCacheTime = 0;
 let marketOverviewInflight = null;
@@ -2172,6 +2614,10 @@ async function loadMarketOverview({ force = false } = {}) {
         marketOverviewCacheTime = Date.now();
         renderHomeMarket(r);
         renderDetailMarketCompare(findDetailWatch(), r);
+
+        // 客户端异步增强：若 NQINTEL 云端为备用点位，尝试浏览器本地直连 Yahoo 探测原生点位
+        tryFetchClientAiIndex(r);
+
         return r;
       }
     } catch (e) {
@@ -2185,30 +2631,70 @@ async function loadMarketOverview({ force = false } = {}) {
   return marketOverviewInflight;
 }
 
-function renderHomeMarket(data) {
-  const grid = $('#homeMarketGrid');
-  const timeEl = $('#homeMarketTime');
-  if (!grid) return;
-  if (!data || !Array.isArray(data.indices) || !data.indices.length) {
-    grid.innerHTML = '<div class="empty-hint" style="grid-column:1/-1;padding:6px 0;font-size:12px;color:var(--text-3);">正在获取今日大盘指数…</div>';
+/** 浏览器端直连探测 NQINTEL 原生点位（若网络通畅则无缝增强） */
+async function tryFetchClientAiIndex(overviewData) {
+  if (!overviewData || !overviewData.us || !Array.isArray(overviewData.us.indices)) return;
+  const aiItem = overviewData.us.indices.find((i) => i.symbol === '^NQINTEL' || i.code === '^NQINTEL');
+  if (!aiItem) return;
+
+  try {
+    const res = await fetch('https://query2.finance.yahoo.com/v8/finance/chart/%5ENQINTEL?interval=1d&range=1d', {
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!res.ok) return;
+    const json = await res.json();
+    const meta = json?.chart?.result?.[0]?.meta;
+    if (meta && typeof meta.regularMarketPrice === 'number') {
+      const p = Math.round(meta.regularMarketPrice * 100) / 100;
+      const prev = typeof meta.chartPreviousClose === 'number' ? meta.chartPreviousClose : meta.previousClose;
+      let chg = 0;
+      let pct = 0;
+      if (prev && prev > 0) {
+        chg = Math.round((p - prev) * 100) / 100;
+        pct = Math.round(((p - prev) / prev) * 10000) / 100;
+      }
+      aiItem.price = p;
+      aiItem.change = chg;
+      aiItem.changePercent = pct;
+      renderHomeMarket(overviewData);
+      renderDetailMarketCompare(findDetailWatch(), overviewData);
+    }
+  } catch (_) {}
+}
+
+function renderSingleMarketGrid(gridEl, timeEl, marketData, defaultTime = '15:00:00', isUs = false) {
+  if (!gridEl) return;
+  if (!marketData || !Array.isArray(marketData.indices) || !marketData.indices.length) {
+    gridEl.innerHTML = '<div class="empty-hint" style="grid-column:1/-1;padding:6px 0;font-size:12px;color:var(--text-3);">正在获取市场指数…</div>';
     return;
   }
 
-  const phaseText = PHASE_LABELS[data.phase] || '行情';
-  if (timeEl) timeEl.textContent = `${data.updateTime || '15:00:00'} · ${phaseText}`;
+  const phaseText = isUs ? (PHASE_LABELS[marketData.phase] || (marketData.phase === 'closed' ? '已收盘' : '行情')) : (PHASE_LABELS[marketData.phase] || '行情');
+  if (timeEl) {
+    timeEl.textContent = `${marketData.updateTime || defaultTime} · ${phaseText}`;
+  }
 
-  grid.innerHTML = data.indices
+  gridEl.innerHTML = marketData.indices
     .map((idx) => {
       const isUp = idx.changePercent != null && idx.changePercent > 0.0001;
       const isDown = idx.changePercent != null && idx.changePercent < -0.0001;
       const cls = isUp ? 'up' : isDown ? 'down' : 'flat';
       const pctStr = idx.changePercent != null ? fmtPct(idx.changePercent) : '—';
       const chgStr = idx.change != null ? (idx.change > 0 ? `+${idx.change.toFixed(2)}` : idx.change.toFixed(2)) : '—';
-      const priceStr = idx.price != null ? idx.price.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+      const priceStr = idx.price != null
+        ? idx.price.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : '—';
+
+      const hasSub = !!idx.subText;
+      const isAi = idx.symbol === '^NQINTEL' || idx.code === '^NQINTEL' || idx.subText === 'NQINTEL';
 
       return `
       <div class="hmc-item">
-        <div class="hmc-item-name" title="${esc(idx.fullName || idx.name)}">${esc(idx.shortName || idx.name)}</div>
+        <div class="hmc-item-name-row">
+          <span class="hmc-item-name" title="${esc(idx.fullName || idx.name)}">${esc(idx.shortName || idx.name)}</span>
+          ${hasSub ? `<span class="hmc-item-sub">${esc(idx.subText)}</span>` : ''}
+          ${isAi ? `<button type="button" class="fund-info-btn stop-prop" data-explain="nqintelExplain" style="font-size:10px;padding:0 2px;" aria-label="AI指数说明">ⓘ</button>` : ''}
+        </div>
         <div class="hmc-item-price">${priceStr}</div>
         <div class="hmc-item-change-row ${cls}">
           <span>${chgStr}</span>
@@ -2219,35 +2705,87 @@ function renderHomeMarket(data) {
     .join('');
 }
 
+function renderHomeMarket(data) {
+  if (!data) return;
+
+  // 1. 渲染中国市场四大指数
+  const gridCn = $('#homeMarketGridCn');
+  const timeCn = $('#homeMarketTimeCn');
+  const cnData = data.cn || {
+    phase: data.phase,
+    updateTime: data.updateTime,
+    indices: data.indices || [],
+  };
+  renderSingleMarketGrid(gridCn, timeCn, cnData, '15:00:00', false);
+
+  // 2. 渲染美国市场四大核心指数 (标普500 / 纳斯达克 / 纳斯达克100 / AI人工智能)
+  const gridUs = $('#homeMarketGridUs');
+  const timeUs = $('#homeMarketTimeUs');
+  const usData = data.us || {
+    phase: 'closed',
+    updateTime: '16:00:00',
+    indices: [],
+  };
+  renderSingleMarketGrid(gridUs, timeUs, usData, '16:00:00', true);
+}
+
 function renderDetailMarketCompare(w, data) {
-  const sec = $('#detailMarketSection');
+  const acc = $('#accMarket');
   const grid = $('#detailMarketGrid');
   const summary = $('#detailMarketSummary');
   const timeEl = $('#detailMarketTime');
-  if (!sec || !grid) return;
+  const sumEl = $('#sumMarket');
+  if (!acc || !grid) return;
 
   if (!w) {
-    sec.hidden = true;
+    acc.hidden = true;
     return;
   }
-  sec.hidden = false;
+  acc.hidden = false;
 
-  const market = data || marketOverviewCache;
+  const marketAll = data || marketOverviewCache;
+  const isUs = (w.market === 'US');
+  const market = isUs ? (marketAll?.us || null) : (marketAll?.cn || { indices: marketAll?.indices || [], phase: marketAll?.phase, updateTime: marketAll?.updateTime });
+
   if (!market || !Array.isArray(market.indices) || !market.indices.length) {
-    grid.innerHTML = '<div class="empty-hint" style="grid-column:1/-1;padding:6px 0;font-size:12px;color:var(--text-3);">正在获取今日大盘行情…</div>';
+    grid.innerHTML = `<div class="empty-hint" style="grid-column:1/-1;padding:6px 0;font-size:12px;color:var(--text-3);">正在获取今日${isUs ? '美股' : 'A股'}大盘行情…</div>`;
     if (summary) summary.innerHTML = '';
+    if (sumEl) sumEl.textContent = `正在获取今日${isUs ? '美股' : 'A股'}大盘行情…`;
     return;
   }
 
-  if (timeEl) timeEl.textContent = `${market.updateTime || '15:00:00'} · ${PHASE_LABELS[market.phase] || '行情'}`;
+  const phaseText = isUs ? (PHASE_LABELS[market.phase] || (market.phase === 'closed' ? '已收盘' : '行情')) : (PHASE_LABELS[market.phase] || '行情');
+  if (timeEl) timeEl.textContent = `${market.updateTime || (isUs ? '16:00:00' : '15:00:00')} · ${phaseText}`;
 
+  // 更新大盘手风琴摘要文本
+  if (sumEl) {
+    if (isUs) {
+      const sp = market.indices.find((i) => i.symbol === '^GSPC' || i.code === '^GSPC');
+      const nas = market.indices.find((i) => i.symbol === '^IXIC' || i.code === '^IXIC');
+      const ai = market.indices.find((i) => i.symbol === '^NQINTEL' || i.code === '^NQINTEL');
+      const spTxt = sp && sp.changePercent != null ? `标普 ${fmtPct(sp.changePercent)}` : '标普 —';
+      const nasTxt = nas && nas.changePercent != null ? `纳指 ${fmtPct(nas.changePercent)}` : '纳指 —';
+      const aiTxt = ai && ai.changePercent != null ? `AI ${fmtPct(ai.changePercent)}` : 'AI —';
+      sumEl.textContent = `${spTxt} · ${nasTxt} · ${aiTxt}`;
+    } else {
+      const sh = market.indices.find((i) => i.code === '000001.SH');
+      const sz = market.indices.find((i) => i.code === '399001.SZ');
+      const cyb = market.indices.find((i) => i.code === '399006.SZ');
+      const shTxt = sh && sh.changePercent != null ? `沪指 ${fmtPct(sh.changePercent)}` : '沪指 —';
+      const szTxt = sz && sz.changePercent != null ? `深指 ${fmtPct(sz.changePercent)}` : '深指 —';
+      const cybTxt = cyb && cyb.changePercent != null ? `创指 ${fmtPct(cyb.changePercent)}` : '创指 —';
+      sumEl.textContent = `${shTxt} · ${szTxt} · ${cybTxt}`;
+    }
+  }
+
+  // 渲染指数网格
   grid.innerHTML = market.indices
     .map((idx) => {
       const isUp = idx.changePercent != null && idx.changePercent > 0.0001;
       const isDown = idx.changePercent != null && idx.changePercent < -0.0001;
       const cls = isUp ? 'up' : isDown ? 'down' : 'flat';
       const pctStr = idx.changePercent != null ? fmtPct(idx.changePercent) : '—';
-      const priceStr = idx.price != null ? idx.price.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+      const priceStr = idx.price != null ? (idx.price.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' 点') : '—';
 
       return `
       <div class="mcb-item">
@@ -2258,33 +2796,73 @@ function renderDetailMarketCompare(w, data) {
     })
     .join('');
 
+  // 渲染我的标的 vs 核心指数客观表现对比
   if (summary) {
     const myPct = typeof w.changePercent === 'number' ? w.changePercent : null;
     const myPctStr = myPct != null ? fmtPct(myPct) : '—';
     const myCls = myPct != null ? (myPct > 0 ? 'up' : myPct < 0 ? 'down' : 'flat') : 'flat';
 
-    const shIdx = market.indices.find((i) => i.code === '000001.SH');
-    const cybIdx = market.indices.find((i) => i.code === '399006.SZ');
-
     let diffHtml = '';
-    if (myPct != null && shIdx && shIdx.changePercent != null) {
-      const diffSh = myPct - shIdx.changePercent;
-      const diffShTag = diffSh > 0.01 ? `+${diffSh.toFixed(2)}` : diffSh.toFixed(2);
-      const diffCls = diffSh > 0.01 ? 'better' : diffSh < -0.01 ? 'worse' : 'same';
-      diffHtml += `<div class="mcb-summary-row">
-        <span>相对沪指（上证指数）</span>
-        <b class="mcb-diff-tag ${diffCls}">${diffShTag} 个百分点</b>
-      </div>`;
-    }
 
-    if (myPct != null && cybIdx && cybIdx.changePercent != null) {
-      const diffCyb = myPct - cybIdx.changePercent;
-      const diffCybTag = diffCyb > 0.01 ? `+${diffCyb.toFixed(2)}` : diffCyb.toFixed(2);
-      const diffCls = diffCyb > 0.01 ? 'better' : diffCyb < -0.01 ? 'worse' : 'same';
-      diffHtml += `<div class="mcb-summary-row">
-        <span>相对创指（创业板指）</span>
-        <b class="mcb-diff-tag ${diffCls}">${diffCybTag} 个百分点</b>
-      </div>`;
+    if (isUs) {
+      // 美股对比：标普500、纳斯达克、纳斯达克100
+      const spIdx = market.indices.find((i) => i.symbol === '^GSPC' || i.code === '^GSPC');
+      const nasIdx = market.indices.find((i) => i.symbol === '^IXIC' || i.code === '^IXIC');
+      const ndxIdx = market.indices.find((i) => i.symbol === '^NDX' || i.code === '^NDX');
+
+      if (myPct != null && spIdx && spIdx.changePercent != null) {
+        const diff = myPct - spIdx.changePercent;
+        const diffTag = diff > 0.01 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
+        const diffCls = diff > 0.01 ? 'better' : diff < -0.01 ? 'worse' : 'same';
+        diffHtml += `<div class="mcb-summary-row">
+          <span>相对标普500 (S&P 500)</span>
+          <b class="mcb-diff-tag ${diffCls}">${diffTag} 个百分点</b>
+        </div>`;
+      }
+
+      if (myPct != null && nasIdx && nasIdx.changePercent != null) {
+        const diff = myPct - nasIdx.changePercent;
+        const diffTag = diff > 0.01 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
+        const diffCls = diff > 0.01 ? 'better' : diff < -0.01 ? 'worse' : 'same';
+        diffHtml += `<div class="mcb-summary-row">
+          <span>相对纳斯达克综合指数</span>
+          <b class="mcb-diff-tag ${diffCls}">${diffTag} 个百分点</b>
+        </div>`;
+      }
+
+      if (myPct != null && ndxIdx && ndxIdx.changePercent != null) {
+        const diff = myPct - ndxIdx.changePercent;
+        const diffTag = diff > 0.01 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
+        const diffCls = diff > 0.01 ? 'better' : diff < -0.01 ? 'worse' : 'same';
+        diffHtml += `<div class="mcb-summary-row">
+          <span>相对纳斯达克100指数</span>
+          <b class="mcb-diff-tag ${diffCls}">${diffTag} 个百分点</b>
+        </div>`;
+      }
+    } else {
+      // 中国 A 股对比：沪指、创指
+      const shIdx = market.indices.find((i) => i.code === '000001.SH');
+      const cybIdx = market.indices.find((i) => i.code === '399006.SZ');
+
+      if (myPct != null && shIdx && shIdx.changePercent != null) {
+        const diffSh = myPct - shIdx.changePercent;
+        const diffShTag = diffSh > 0.01 ? `+${diffSh.toFixed(2)}` : diffSh.toFixed(2);
+        const diffCls = diffSh > 0.01 ? 'better' : diffSh < -0.01 ? 'worse' : 'same';
+        diffHtml += `<div class="mcb-summary-row">
+          <span>相对沪指（上证指数）</span>
+          <b class="mcb-diff-tag ${diffCls}">${diffShTag} 个百分点</b>
+        </div>`;
+      }
+
+      if (myPct != null && cybIdx && cybIdx.changePercent != null) {
+        const diffCyb = myPct - cybIdx.changePercent;
+        const diffCybTag = diffCyb > 0.01 ? `+${diffCyb.toFixed(2)}` : diffCyb.toFixed(2);
+        const diffCls = diffCyb > 0.01 ? 'better' : diffCyb < -0.01 ? 'worse' : 'same';
+        diffHtml += `<div class="mcb-summary-row">
+          <span>相对创指（创业板指）</span>
+          <b class="mcb-diff-tag ${diffCybTag} 个百分点</b>
+        </div>`;
+      }
     }
 
     summary.innerHTML = `
@@ -2459,34 +3037,59 @@ function bindDetailEvents() {
 /* ---------------- 监控表单 ---------------- */
 let previewTimer = null;
 function currentType() {
-  return $('#typeSeg .on').dataset.type;
+  const btn = $('#typeSeg .on');
+  return btn ? btn.dataset.type : 'stock';
+}
+
+function currentMarket() {
+  const btn = $('#formMarketSeg .on');
+  return btn ? btn.dataset.market : (state.formMarket || 'CN');
+}
+
+function setMarket(market = 'CN') {
+  state.formMarket = market;
+  document.querySelectorAll('#formMarketSeg button').forEach((b) => b.classList.toggle('on', b.dataset.market === market));
+  const type = currentType();
+  const isUs = market === 'US';
+  $('#codeLabel').textContent = isUs ? (type === 'etf' ? '美股ETF代码' : '美股代码') : (type === 'etf' ? 'ETF代码' : '股票代码');
+  $('#nameLabel').textContent = isUs ? (type === 'etf' ? '美股ETF名称' : '美股名称') : (type === 'etf' ? 'ETF名称' : '股票名称');
+  $('#fCode').maxLength = isUs ? 10 : 6;
+  $('#fCode').placeholder = isUs ? (type === 'etf' ? '如 QQQ / SPY / VOO' : '如 AAPL / NVDA / TSLA') : (type === 'etf' ? '6 位数字，如 510300' : '6 位数字，如 601137');
+  $('#fBuy').placeholder = isUs ? '如 180.00 (美元)' : '如 20.00 (人民币)';
+  $('#fSell').placeholder = isUs ? '如 230.00 (美元)' : '如 28.00 (人民币)';
+  schedulePreview();
 }
 
 function setType(type) {
   document.querySelectorAll('#typeSeg button').forEach((b) => b.classList.toggle('on', b.dataset.type === type));
-  $('#codeLabel').textContent = type === 'etf' ? 'ETF代码' : '股票代码';
-  $('#nameLabel').textContent = type === 'etf' ? 'ETF名称' : '股票名称';
-  $('#fCode').placeholder = type === 'etf' ? '6 位数字，如 510300' : '6 位数字，如 601137';
-  schedulePreview();
+  setMarket(currentMarket());
 }
 
 function schedulePreview() {
   clearTimeout(previewTimer);
-  const code = $('#fCode').value.trim();
+  const market = currentMarket();
+  const isUs = market === 'US';
+  let code = $('#fCode').value.trim();
+  if (isUs) {
+    code = code.toUpperCase();
+    $('#fCode').value = code;
+  }
   const box = $('#pricePreview');
   box.textContent = '';
   box.className = 'hint';
-  if (code.length !== 6) return;
+  if (isUs ? code.length < 1 : code.length !== 6) return;
+
   previewTimer = setTimeout(async () => {
     try {
       box.textContent = '查询行情中…';
-      const r = await call('ths-get-market-price', { type: currentType(), code });
+      const r = await call('ths-get-market-price', { market, type: currentType(), code });
       if (!r.ok) {
         box.textContent = `未取到行情：${r.error || '暂无数据'}`;
         return;
       }
+      const sym = isUs ? '$' : '¥';
       const pct = fmtPct(r.changePercent);
-      box.textContent = `当前价 ¥${fmtPrice(r.price, currentType())}${pct ? ` · ${pct}` : ''}`;
+      box.textContent = `当前价 ${sym}${fmtPrice(r.price, currentType(), market)}${pct ? ` · ${pct}` : ''}`;
       box.className = 'hint ok';
       if (!$('#fName').value.trim() && r.name) $('#fName').value = r.name;
     } catch (_) {
@@ -2502,7 +3105,10 @@ function openForm(watch) {
   $('#formError').hidden = true;
   $('#pricePreview').textContent = '';
 
+  const initialMarket = watch ? (watch.market || 'CN') : (state.marketFilter === 'US' ? 'US' : 'CN');
   setType(watch ? watch.type : 'stock');
+  setMarket(initialMarket);
+
   $('#fCode').value = watch ? watch.code : '';
   $('#fName').value = watch ? watch.name : '';
   $('#fBuy').value = watch && watch.buyPrice != null ? watch.buyPrice : '';
@@ -2524,10 +3130,12 @@ function bindTargetPreview() {
   const recalc = () => {
     const r = calcTargetPrices();
     const hint = $('#targetHint');
+    const isUs = currentMarket() === 'US';
+    const sym = isUs ? '$' : '¥';
     if (!r) { hint.textContent = ''; return; }
-    hint.textContent = `→ 买入 ${fmtPrice(r.buy)} ｜ 卖出 ${fmtPrice(r.sell)}`;
-    if (!state.formManBuy && $('#fBuy').value.trim() === state.formBaseBuy) $('#fBuy').value = fmtPrice(r.buy);
-    if (!state.formManSell && $('#fSell').value.trim() === state.formBaseSell) $('#fSell').value = fmtPrice(r.sell);
+    hint.textContent = `→ 买入 ${sym}${fmtPrice(r.buy, currentType(), currentMarket())} ｜ 卖出 ${sym}${fmtPrice(r.sell, currentType(), currentMarket())}`;
+    if (!state.formManBuy && $('#fBuy').value.trim() === state.formBaseBuy) $('#fBuy').value = fmtPrice(r.buy, currentType(), currentMarket());
+    if (!state.formManSell && $('#fSell').value.trim() === state.formBaseSell) $('#fSell').value = fmtPrice(r.sell, currentType(), currentMarket());
   };
   ['fTarget', 'fBuyD', 'fSellD'].forEach((id) => $('#' + id).addEventListener('input', recalc));
   $('#fBuy').addEventListener('input', () => { state.formManBuy = true; $('#targetHint').textContent = ''; });
@@ -2537,9 +3145,15 @@ function bindTargetPreview() {
 async function saveForm() {
   const err = $('#formError');
   err.hidden = true;
+  const market = currentMarket();
+  const isUs = market === 'US';
+  const rawCode = $('#fCode').value.trim();
+  const code = isUs ? rawCode.toUpperCase() : rawCode;
+
   const payload = {
+    market,
     type: currentType(),
-    code: $('#fCode').value.trim(),
+    code,
     name: $('#fName').value.trim(),
     buyPrice: $('#fBuy').value.trim(),
     sellPrice: $('#fSell').value.trim(),
@@ -2548,11 +3162,21 @@ async function saveForm() {
     buyDiscount: $('#fBuyD').value.trim(),
     sellDiscount: $('#fSellD').value.trim(),
   };
-  if (!/^\d{6}$/.test(payload.code)) {
-    err.textContent = '代码必须为 6 位数字';
-    err.hidden = false;
-    return;
+
+  if (isUs) {
+    if (!/^[A-Z0-9.\-]{1,10}$/.test(payload.code)) {
+      err.textContent = '美股代码格式不正确（如 AAPL、NVDA、QQQ、SPY）';
+      err.hidden = false;
+      return;
+    }
+  } else {
+    if (!/^\d{6}$/.test(payload.code)) {
+      err.textContent = '中国市场代码必须为 6 位数字';
+      err.hidden = false;
+      return;
+    }
   }
+
   if (!payload.name) {
     err.textContent = '请填写名称';
     err.hidden = false;
@@ -2602,8 +3226,27 @@ function askDelete(watch) {
 let hPreviewTimer = null;
 let hCurrentMode = 'qty'; // 'qty' | 'amount'
 
+function currentHoldingMarket() {
+  const el = $('#hMarketSeg .on');
+  return el ? (el.dataset.market || 'CN') : 'CN';
+}
+
+function setHoldingMarket(market = 'CN') {
+  const m = market.toUpperCase() === 'US' ? 'US' : 'CN';
+  document.querySelectorAll('#hMarketSeg button').forEach((b) => b.classList.toggle('on', b.dataset.market === m));
+  const isUs = m === 'US';
+  const symName = isUs ? '美元' : '元';
+  $('#hCode').placeholder = isUs ? '美股代码，如 NVDA、AAPL、QQQ' : '6 位数字，如 601137';
+  if ($('#hCostPriceLabel')) $('#hCostPriceLabel').textContent = `持仓成本价 (${symName})`;
+  if ($('#hInvestedAmountLabel')) $('#hInvestedAmountLabel').textContent = `总投入金额 (${symName})`;
+  if ($('#hAmountCostPriceLabel')) $('#hAmountCostPriceLabel').textContent = `买入成本价 (${symName})`;
+  recalcHoldingModeHint();
+  scheduleHoldingPreview();
+}
+
 function currentHoldingType() {
-  return $('#hTypeSeg .on').dataset.type;
+  const el = $('#hTypeSeg .on');
+  return el ? el.dataset.type : 'stock';
 }
 
 function setHoldingType(type) {
@@ -2623,11 +3266,13 @@ function setHoldingMode(mode) {
 
 function recalcHoldingModeHint() {
   const hint = $('#hCalcHint');
+  const isUs = currentHoldingMarket() === 'US';
+  const sym = isUs ? '$' : '¥';
   if (hCurrentMode === 'qty') {
     const q = parseFloat($('#hQuantity').value);
     const p = parseFloat($('#hCostPrice').value);
     if (Number.isFinite(q) && q > 0 && Number.isFinite(p) && p > 0) {
-      hint.textContent = `持仓成本总额：¥${(q * p).toFixed(2)}`;
+      hint.textContent = `持仓成本总额：${sym}${(q * p).toFixed(2)}`;
     } else {
       hint.textContent = '';
     }
@@ -2636,7 +3281,7 @@ function recalcHoldingModeHint() {
     const p = parseFloat($('#hAmountCostPrice').value);
     if (Number.isFinite(a) && a > 0 && Number.isFinite(p) && p > 0) {
       const q = Math.floor(a / p);
-      hint.textContent = `理论换算持仓：约 ${q} 股（已投 ¥${a.toFixed(2)}）`;
+      hint.textContent = `理论换算持仓：约 ${q} 股（已投 ${sym}${a.toFixed(2)}）`;
     } else {
       hint.textContent = '';
     }
@@ -2645,20 +3290,23 @@ function recalcHoldingModeHint() {
 
 function scheduleHoldingPreview() {
   clearTimeout(hPreviewTimer);
-  const code = $('#hCode').value.trim();
+  const rawCode = $('#hCode').value.trim();
+  const isUs = currentHoldingMarket() === 'US';
+  const code = isUs ? rawCode.toUpperCase() : rawCode;
   const box = $('#hPricePreview');
   box.textContent = '';
-  if (code.length !== 6) return;
+  if (!code || (isUs ? code.length < 1 : code.length !== 6)) return;
   hPreviewTimer = setTimeout(async () => {
     try {
       box.textContent = '查询行情中…';
-      const r = await call('ths-get-market-price', { type: currentHoldingType(), code });
+      const r = await call('ths-get-market-price', { market: isUs ? 'US' : 'CN', type: currentHoldingType(), code });
       if (!r.ok) {
         box.textContent = `未取到行情：${r.error || '暂无数据'}`;
         return;
       }
+      const sym = isUs ? '$' : '¥';
       const pct = fmtPct(r.changePercent);
-      box.textContent = `当前价 ¥${fmtPrice(r.price, currentHoldingType())}${pct ? ` · ${pct}` : ''}`;
+      box.textContent = `当前价 ${sym}${fmtPrice(r.price, currentHoldingType(), isUs ? 'US' : 'CN')}${pct ? ` · ${pct}` : ''}`;
       box.className = 'hint ok';
       if (!$('#hName').value.trim() && r.name) $('#hName').value = r.name;
       if (r.price && !$('#hCostPrice').value) $('#hCostPrice').value = r.price.toFixed(2);
@@ -2677,7 +3325,9 @@ function openHoldingForm(holding) {
   $('#hFormError').hidden = true;
   $('#hPricePreview').textContent = '';
 
+  const initialMarket = holding ? (holding.market || 'CN') : (state.marketFilter === 'US' ? 'US' : 'CN');
   setHoldingType(holding ? holding.type : 'stock');
+  setHoldingMarket(initialMarket);
   setHoldingMode('qty');
 
   $('#hCode').value = holding ? holding.code : '';
@@ -2687,7 +3337,7 @@ function openHoldingForm(holding) {
   $('#hInvestedAmount').value = holding ? holding.costAmount : '';
   $('#hAmountCostPrice').value = holding ? holding.costPrice : '';
   $('#hBuyDate').value = holding && holding.buyDate ? holding.buyDate : '';
-  $('#hAccount').value = holding && holding.accountName ? holding.accountName : '默认账户';
+  $('#hAccount').value = holding && holding.accountName ? holding.accountName : (initialMarket === 'US' ? '美股账户' : '默认账户');
   $('#hTargetQty').value = holding && holding.targetQuantity ? holding.targetQuantity : '';
   $('#hPlanAmount').value = holding && holding.plannedAmount ? holding.plannedAmount : '';
   $('#hNote').value = holding && holding.note ? holding.note : '';
@@ -2700,23 +3350,36 @@ function openHoldingForm(holding) {
 async function saveHoldingForm() {
   const err = $('#hFormError');
   err.hidden = true;
+  const isUs = currentHoldingMarket() === 'US';
+  const rawCode = $('#hCode').value.trim();
+  const code = isUs ? rawCode.toUpperCase() : rawCode;
 
   const payload = {
+    market: isUs ? 'US' : 'CN',
     type: currentHoldingType(),
-    code: $('#hCode').value.trim(),
+    code,
     name: $('#hName').value.trim(),
     buyDate: $('#hBuyDate').value,
-    accountName: $('#hAccount').value.trim() || '默认账户',
+    accountName: $('#hAccount').value.trim() || (isUs ? '美股账户' : '默认账户'),
     targetQuantity: $('#hTargetQty').value.trim(),
     plannedAmount: $('#hPlanAmount').value.trim(),
     note: $('#hNote').value.trim(),
   };
 
-  if (!/^\d{6}$/.test(payload.code)) {
-    err.textContent = '代码必须为 6 位数字';
-    err.hidden = false;
-    return;
+  if (isUs) {
+    if (!/^[A-Z0-9.\-]{1,10}$/.test(payload.code)) {
+      err.textContent = '美股代码格式不正确（如 AAPL、NVDA、QQQ、SPY）';
+      err.hidden = false;
+      return;
+    }
+  } else {
+    if (!/^\d{6}$/.test(payload.code)) {
+      err.textContent = '中国市场代码必须为 6 位数字';
+      err.hidden = false;
+      return;
+    }
   }
+
   if (!payload.name) {
     err.textContent = '请填写名称';
     err.hidden = false;
@@ -2866,11 +3529,14 @@ function renderAlerts() {
         typeBadge = `<span class="alert-chip ${chipCls}">${chipText}</span>`;
         const actionText = isBuy ? '现价 ≤ 买入目标' : '现价 ≥ 卖出目标';
         const priceCls = isSell ? 'text-up' : isBuy ? 'text-down' : '';
+        const isAlertUs = isUsStock(a);
+        const aSym = isAlertUs ? '$' : '¥';
+        const aMarket = isAlertUs ? 'US' : 'CN';
 
         detailsHtml = `
           <div class="alert-grid">
-            <div class="ag-col"><span>触发时现价</span><b class="${priceCls}">¥${fmtPrice(a.currentPrice, a.type) || '—'}</b></div>
-            <div class="ag-col"><span>目标阈值</span><b>¥${fmtPrice(a.triggerPrice, a.type) || '—'}</b></div>
+            <div class="ag-col"><span>触发时现价</span><b class="${priceCls}">${aSym}${fmtPrice(a.currentPrice, a.type, aMarket) || '—'}</b></div>
+            <div class="ag-col"><span>目标阈值</span><b>${aSym}${fmtPrice(a.triggerPrice, a.type, aMarket) || '—'}</b></div>
             <div class="ag-col"><span>达成条件</span><b class="cond">${actionText}</b></div>
           </div>`;
       }
@@ -3122,8 +3788,9 @@ function markGuideSecRead(secIndex) {
 
 function updateGuideBadge() {
   const count = guideState.readSet.size;
+  const total = document.querySelectorAll('.guide-section').length || 12;
   const badge = $('#guideProgressBadge');
-  if (badge) badge.textContent = `已了解 ${count}/8 节`;
+  if (badge) badge.textContent = `已了解 ${count}/${total} 节`;
 }
 
 function openGuide(sectionId) {
@@ -3138,7 +3805,11 @@ function openGuide(sectionId) {
       if (secIndex != null) markGuideSecRead(secIndex);
     }
     document.querySelectorAll('.guide-pill').forEach((btn) => {
-      btn.classList.toggle('on', btn.dataset.sec === targetId);
+      const isOn = btn.dataset.sec === targetId;
+      btn.classList.toggle('on', isOn);
+      if (isOn) {
+        btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      }
     });
   }, 60);
 }
@@ -3398,7 +4069,11 @@ function bindEvents() {
   // 名词解释点击
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-explain]');
-    if (btn) openExplain(btn.dataset.explain);
+    if (btn) {
+      e.stopPropagation();
+      e.preventDefault();
+      openExplain(btn.dataset.explain);
+    }
   });
   $('[data-close-explain]').addEventListener('click', () => { $('#explainModal').hidden = true; });
 
@@ -3410,6 +4085,39 @@ function bindEvents() {
     });
   });
   $('#saveSettingsBtn').addEventListener('click', saveSettings);
+
+  // 投资备注事件
+  const topNoteBtn = $('#btnDetailTopNote');
+  if (topNoteBtn) topNoteBtn.addEventListener('click', () => openWatchRemarkModal());
+  const editNoteBtn = $('#btnDetailEditNote');
+  if (editNoteBtn) editNoteBtn.addEventListener('click', () => openWatchRemarkModal());
+  const addNoteBtn = $('#btnDetailAddNote');
+  if (addNoteBtn) addNoteBtn.addEventListener('click', () => openWatchRemarkModal());
+
+  const toggleNoteBtn = $('#btnDetailToggleNote');
+  if (toggleNoteBtn) {
+    toggleNoteBtn.addEventListener('click', () => {
+      const contentEl = $('#detailNoteContent');
+      if (!contentEl) return;
+      const isClamped = contentEl.classList.toggle('clamp');
+      toggleNoteBtn.textContent = isClamped ? '查看全部' : '收起';
+    });
+  }
+
+  document.querySelectorAll('[data-close-watch-remark]').forEach((b) => {
+    b.addEventListener('click', () => { $('#watchRemarkModal').hidden = true; });
+  });
+  const saveRemarkBtn = $('#saveWatchRemarkBtn');
+  if (saveRemarkBtn) saveRemarkBtn.addEventListener('click', saveWatchRemark);
+  const clearRemarkBtn = $('#watchRemarkClearBtn');
+  if (clearRemarkBtn) clearRemarkBtn.addEventListener('click', clearWatchRemark);
+  const remarkInput = $('#watchRemarkInput');
+  if (remarkInput) {
+    remarkInput.addEventListener('input', () => {
+      const countEl = $('#watchRemarkCharCount');
+      if (countEl) countEl.textContent = remarkInput.value.length;
+    });
+  }
 
   // 日记弹窗
   $('#hdAddNoteBtn').addEventListener('click', () => {
@@ -3454,6 +4162,18 @@ function bindEvents() {
     })
   );
 
+  // 市场分类筛选 (全部 / 中国 / 美股)
+  const currentMarketFilter = state.marketFilter || 'ALL';
+  document.querySelectorAll('#marketSegment button').forEach((b) => {
+    b.classList.toggle('on', b.dataset.market === currentMarketFilter);
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#marketSegment button').forEach((x) => x.classList.toggle('on', x === b));
+      state.marketFilter = b.dataset.market;
+      localStorage.setItem('ths_market_filter', state.marketFilter);
+      renderWatches();
+    });
+  });
+
   // 监控相关
   document.querySelectorAll('[data-open-add]').forEach((b) => b.addEventListener('click', () => openForm(null)));
   document.querySelectorAll('#watchFilter button').forEach((b) =>
@@ -3484,6 +4204,9 @@ function bindEvents() {
   );
 
   // 持仓录入模式切换
+  document.querySelectorAll('#hMarketSeg button').forEach((b) =>
+    b.addEventListener('click', () => setHoldingMarket(b.dataset.market))
+  );
   document.querySelectorAll('#hTypeSeg button').forEach((b) =>
     b.addEventListener('click', () => setHoldingType(b.dataset.type))
   );
@@ -3491,7 +4214,12 @@ function bindEvents() {
     b.addEventListener('click', () => setHoldingMode(b.dataset.mode))
   );
   $('#hCode').addEventListener('input', (e) => {
-    e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+    const isUs = currentHoldingMarket() === 'US';
+    if (isUs) {
+      e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9.\-]/g, '').slice(0, 10);
+    } else {
+      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+    }
     scheduleHoldingPreview();
   });
   $('#hQuantity').addEventListener('input', recalcHoldingModeHint);
@@ -3506,11 +4234,19 @@ function bindEvents() {
   $('[data-close-holding]').addEventListener('click', () => { $('#holdingModal').hidden = true; });
 
   // 监控表单
+  document.querySelectorAll('#formMarketSeg button').forEach((b) =>
+    b.addEventListener('click', () => setMarket(b.dataset.market))
+  );
   document.querySelectorAll('#typeSeg button').forEach((b) =>
     b.addEventListener('click', () => setType(b.dataset.type))
   );
   $('#fCode').addEventListener('input', (e) => {
-    e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+    const isUs = currentMarket() === 'US';
+    if (isUs) {
+      e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9.\-]/g, '').slice(0, 10);
+    } else {
+      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+    }
     schedulePreview();
   });
   $('#saveBtn').addEventListener('click', saveForm);
@@ -3619,23 +4355,56 @@ async function parseImportText(text) {
   for (let i = 0; i < lines.length; i++) {
     const cells = splitImpLine(lines[i]);
     if (!cells.length || cells.every((c) => !c)) continue;
+    let market = 'CN';
+    let typeIdx = 0;
+    let codeIdx = 1;
+    let nameIdx = 2;
+    let buyIdx = 3;
+    let sellIdx = 4;
+    let enIdx = 5;
+
+    const firstCell = String(cells[0] || '').trim().toUpperCase();
+    if (['CN', 'US', '中国', '美股'].includes(firstCell)) {
+      market = ['US', '美股'].includes(firstCell) ? 'US' : 'CN';
+      typeIdx = 1;
+      codeIdx = 2;
+      nameIdx = 3;
+      buyIdx = 4;
+      sellIdx = 5;
+      enIdx = 6;
+    } else {
+      const rawCode = String(cells[1] || '').trim();
+      market = /^\d{6}$/.test(rawCode) ? 'CN' : 'US';
+    }
+
+    const type = normImpType(cells[typeIdx]) || 'stock';
+    const code = normImpCode(cells[codeIdx]);
     rows.push({
-      type: normImpType(cells[0]) || 'stock',
-      code: normImpCode(cells[1]),
-      name: cells[2] || cells[1],
-      buy: parseFloat(cells[3]) || null,
-      sell: parseFloat(cells[4]) || null,
-      enabled: parseImpEnabled(cells[5]),
-      status: 'ok',
+      market,
+      type,
+      code,
+      name: cells[nameIdx] || cells[codeIdx],
+      buy: parseFloat(cells[buyIdx]) || null,
+      sell: parseFloat(cells[sellIdx]) || null,
+      enabled: parseImpEnabled(cells[enIdx]),
+      status: code ? 'ok' : 'error',
     });
   }
   imp.rows = rows;
   $('#impStats').innerHTML = `<span class="imp-chip ok">共 ${rows.length} 条</span>`;
-  $('#impTbody').innerHTML = rows.map((r) => `<tr><td>✅</td><td>${r.type}</td><td>${r.code}</td><td>${r.name}</td><td>${r.buy||'—'}</td><td>${r.sell||'—'}</td><td>${r.enabled?'是':'否'}</td><td class="note">—</td></tr>`).join('');
+  $('#impTbody').innerHTML = rows.map((r) => `<tr><td>${r.status === 'ok' ? '✅' : '❌'}</td><td>${r.market === 'US' ? '美股' : '中国'}</td><td>${r.type === 'etf' ? 'ETF' : '股票'}</td><td>${r.code || '—'}</td><td>${r.name || '—'}</td><td>${r.buy||'—'}</td><td>${r.sell||'—'}</td><td>${r.enabled?'是':'否'}</td><td class="note">${r.status === 'ok' ? '正常' : '代码格式错误'}</td></tr>`).join('');
   impSwitchStep(2);
 }
 async function confirmImport() {
-  const payloadRows = imp.rows.map((r) => ({ type: r.type, code: r.code, name: r.name, buyPrice: r.buy, sellPrice: r.sell, enabled: r.enabled }));
+  const payloadRows = imp.rows.filter((r) => r.status === 'ok').map((r) => ({
+    market: r.market,
+    type: r.type,
+    code: r.code,
+    name: r.name,
+    buyPrice: r.buy,
+    sellPrice: r.sell,
+    enabled: r.enabled,
+  }));
   try {
     await call('ths-import-watches', { rows: payloadRows, duplicateStrategy: 'skip' });
     $('#impResult').innerHTML = `<p class="big">✅ 导入完成</p><p>成功处理：${payloadRows.length} 条</p>`;
@@ -3654,7 +4423,9 @@ function normImpType(v) {
 function normImpCode(raw) {
   let s = String(raw == null ? '' : raw).replace(/["'\s]/g, '').toUpperCase();
   s = s.replace(/\.(SH|SZ|BJ)$/, '').replace(/^(SH|SZ|BJ)(?=\d{6}$)/, '');
-  return /^\d{6}$/.test(s) ? s : null;
+  if (/^\d{6}$/.test(s)) return s;
+  if (/^[A-Z0-9.\-]{1,10}$/.test(s)) return s;
+  return null;
 }
 function parseImpEnabled(raw) {
   const s = String(raw == null ? '' : raw).trim().toLowerCase();

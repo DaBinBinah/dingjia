@@ -15,7 +15,7 @@ class ThsApiError extends Error {
 }
 
 function getApiKey() {
-  const key = process.env.THS_API_KEY || 'REDACTED_THS_API_KEY';
+  const key = process.env.THS_API_KEY;
   if (!key) throw new ThsApiError('未配置环境变量 THS_API_KEY', 'CONFIG_MISSING');
   return key;
 }

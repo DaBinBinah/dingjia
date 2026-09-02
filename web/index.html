@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f5f5f7">
 <title>盯价 - 你定价格，我来盯。</title>
-<link rel="stylesheet" href="css/style.css?v=20260901w52v1">
+<link rel="stylesheet" href="css/style.css?v=20260901auditedv1">
 </head>
 <body>
 
@@ -69,20 +69,47 @@
       </div>
     </section>
 
-    <!-- 📊 今日市场指数 (首页轻量大盘模块) -->
+    <!-- 📊 今日市场指数 (首页轻量大盘模块：支持中国市场 + 美国市场) -->
     <section class="home-market-card" id="homeMarketOverview">
-      <div class="hmc-header">
-        <div class="hmc-title-group">
-          <span class="sec-dot live"></span>
-          <span class="hmc-title">📊 今日市场</span>
-          <button type="button" class="fund-info-btn" data-explain="marketOverview" aria-label="大盘指数说明">ⓘ</button>
+      <!-- 🇨🇳 中国市场 -->
+      <div class="hmc-market-section" id="hmcSectionCn">
+        <div class="hmc-header">
+          <div class="hmc-title-group">
+            <span class="sec-dot live"></span>
+            <span class="hmc-title">🇨🇳 中国市场</span>
+            <button type="button" class="fund-info-btn" data-explain="marketOverview" aria-label="中国大盘指数说明">ⓘ</button>
+          </div>
+          <span class="hmc-time" id="homeMarketTimeCn">--:--:--</span>
         </div>
-        <span class="hmc-time" id="homeMarketTime">--:--:--</span>
+        <div class="hmc-grid" id="homeMarketGridCn">
+          <!-- 沪指、深指、创指、科创50 由 JS 动态渲染 -->
+        </div>
       </div>
-      <div class="hmc-grid" id="homeMarketGrid">
-        <!-- 沪指、深指、创指、科创50 由 JS 动态渲染 -->
+
+      <div class="hmc-market-divider"></div>
+
+      <!-- 🇺🇸 美国市场 -->
+      <div class="hmc-market-section" id="hmcSectionUs">
+        <div class="hmc-header">
+          <div class="hmc-title-group">
+            <span class="sec-dot live"></span>
+            <span class="hmc-title">🇺🇸 美国市场</span>
+            <button type="button" class="fund-info-btn" data-explain="usMarketOverview" aria-label="美股核心指数说明">ⓘ</button>
+          </div>
+          <span class="hmc-time" id="homeMarketTimeUs">--:--:--</span>
+        </div>
+        <div class="hmc-grid" id="homeMarketGridUs">
+          <!-- 标普500、纳斯达克、纳斯达克100、AI人工智能 由 JS 动态渲染 -->
+        </div>
       </div>
     </section>
+
+    <!-- 🌍 市场分类切换 (全部 / 中国 / 美股) -->
+    <div class="market-segment" id="marketSegment">
+      <button type="button" class="market-pill on" data-market="ALL">全部</button>
+      <button type="button" class="market-pill" data-market="CN">🇨🇳 中国</button>
+      <button type="button" class="market-pill" data-market="US">🇺🇸 美股</button>
+    </div>
 
     <div class="seg seg-block" id="watchFilter">
       <button data-filter="all" class="on">全部</button>
@@ -161,7 +188,7 @@
       <!-- 资金安全垫与计划投入看板 -->
       <div class="fund-usage-box" id="fundUsageBox">
         <div class="fu-item">
-          <span class="fu-lab">现金比例 (安全垫) <button class="btn-info" data-explain="cashSafe">ⓘ</button></span>
+          <span class="fu-lab">现金比例 (安全垫) <button class="btn-info" data-explain="cashSafe" aria-label="现金安全垫说明">ⓘ</button></span>
           <b class="fu-val" id="fuCashRatio">100%</b>
         </div>
         <div class="fu-item">
@@ -391,7 +418,7 @@
     <section class="detail-section" id="hdBreakevenSection">
       <div class="section-title-bar">
         <h3>⚖️ 理论回本价与交易费用</h3>
-        <button class="btn-info" data-explain="breakeven">ⓘ</button>
+        <button class="btn-info" data-explain="breakeven" aria-label="理论回本价与交易费用说明">ⓘ</button>
       </div>
       <div class="breakeven-card">
         <div class="bk-main">
@@ -406,7 +433,7 @@
     <section class="detail-section" id="hdScenarioSection">
       <div class="section-title-bar">
         <h3>📈 情景盈亏测算</h3>
-        <button class="btn-info" data-explain="scenario">ⓘ</button>
+        <button class="btn-info" data-explain="scenario" aria-label="情景盈亏测算说明">ⓘ</button>
       </div>
       <p class="sim-intro">测算当股价发生不同幅度变动时，你的持仓浮动盈亏情况（纯数学测算，非预测）：</p>
       <div class="scenario-table-wrap">
@@ -440,7 +467,7 @@
     <section class="detail-section" id="hdMarketCompareSection">
       <div class="section-title-bar">
         <h3>📊 市场对比</h3>
-        <button class="btn-info" data-explain="benchmark">ⓘ</button>
+        <button class="btn-info" data-explain="benchmark" aria-label="市场基准对比说明">ⓘ</button>
       </div>
       <div class="mc-card" id="hdMarketCard">
         <div class="mc-row mc-head">
@@ -573,18 +600,24 @@
     <div class="detail-actions-note">只做资产记录与模拟测算，禁止且不提供任何交易功能</div>
   </main>
 
-  <!-- 视图 5：标的监控详情（无 K 线） -->
+  <!-- 视图 5：标的监控详情（核心展开 + 扩展折叠） -->
   <main id="viewDetail" hidden>
     <div class="detail-head">
       <button id="detailBack" class="icon-btn" aria-label="返回">←</button>
       <div class="detail-title-wrap">
-        <div class="detail-name" id="detailName">—</div>
+        <div class="detail-title-row">
+          <div class="detail-name" id="detailName">—</div>
+          <button type="button" class="btn-note-pill" id="btnDetailTopNote" aria-label="投资备注">
+            <span class="note-pill-icon">📝</span>
+            <span class="note-pill-text" id="detailTopNoteText">备注</span>
+          </button>
+        </div>
         <div class="detail-sub" id="detailSub">—</div>
       </div>
       <span class="detail-chip" id="detailChip">—</span>
     </div>
 
-    <!-- 实时行情与横幅 -->
+    <!-- 1. 实时行情与横幅 (高频核心 · 默认展开) -->
     <section class="detail-quote">
       <div class="detail-price-row">
         <span class="detail-price" id="detailPrice">—</span>
@@ -593,93 +626,42 @@
       <div class="detail-banner" id="detailBanner" hidden></div>
     </section>
 
-    <!-- 核心指标（年度表现 + 年内高低点） -->
-    <section class="metric-matrix">
-      <div class="metric-row">
-        <div class="metric"><b id="metricY2025">—</b><span>2025年至今</span></div>
-        <div class="metric"><b id="metricY2026">—</b><span>2026年至今</span></div>
-        <div class="metric"><b id="metricLast">—</b><span>当前价格</span></div>
-      </div>
-      <div class="metric-row">
-        <div class="metric"><b id="metricYearHigh">—</b><span>2026年最高</span></div>
-        <div class="metric"><b id="metricYearLow">—</b><span>2026年最低</span></div>
-        <div class="metric"><b id="metricDistHigh">—</b><span>距年内高点</span></div>
-      </div>
-    </section>
-
-    <!-- 价格目标双卡片（左绿买入、右黄卖出） -->
+    <!-- 2. 我的价格目标 (高频核心 · 默认展开) -->
     <section class="dist-row" id="distRow"></section>
-
-    <!-- 目标价 × 折扣记录 -->
     <section class="target-summary" id="detailTarget" hidden></section>
 
-    <!-- 分红雷达与历史分红专区 -->
-    <section class="detail-section" id="detailDividendSection">
+    <!-- 3. 我的投资备注 (高频核心 · 长期投资笔记) -->
+    <section class="detail-section" id="detailNoteSection">
       <div class="section-title-bar">
-        <h3>💰 分红雷达</h3>
-        <span class="sec-badge" id="divStabilityBadge">数据计算中</span>
+        <div class="title-with-info">
+          <h3>📝 我的备注</h3>
+          <span class="sec-badge gray" id="detailNoteBadge">投资笔记</span>
+        </div>
+        <button type="button" class="dh-action-btn" id="btnDetailEditNote">✏️ 编辑备注</button>
       </div>
-      <div class="div-radar-card" id="divRadarCard">
-        <div class="div-main-row">
-          <div class="div-amount-box">
-            <span class="div-lab">本次每股分红</span>
-            <b class="div-val" id="divPerShare">—</b>
-          </div>
-          <div class="div-yield-box">
-            <div class="y-row"><span>当前股息率</span><b id="divCurrentYield">—</b></div>
-            <div class="y-row"><span id="divBuyYieldLabel">按买入价股息率</span><b id="divBuyYield">—</b></div>
-          </div>
+      <div class="detail-note-card" id="detailNoteCard">
+        <div class="detail-note-content clamp" id="detailNoteContent">
+          <!-- 动态渲染多行备注文本 -->
         </div>
-        <div class="div-dates-grid">
-          <div class="d-item">
-            <span class="d-lab">股权登记日</span>
-            <b class="d-val" id="divRecordDate">—</b>
-            <span class="d-countdown" id="divCountdown">—</span>
-          </div>
-          <div class="d-item">
-            <span class="d-lab">除息日</span>
-            <b class="d-val" id="divExDate">—</b>
-            <span class="d-sub">开盘除权除息</span>
-          </div>
-          <div class="d-item">
-            <span class="d-lab">红利发放日</span>
-            <b class="d-val" id="divPayDate">—</b>
-            <span class="d-sub">现金分红到账</span>
-          </div>
+        <div class="detail-note-footer" id="detailNoteFooter">
+          <span class="note-updated-time" id="detailNoteTime"></span>
+          <button type="button" class="btn-note-toggle" id="btnDetailToggleNote" hidden>查看全部</button>
         </div>
-        <div class="div-stats-row" id="divStatsRow">
-          <div class="ds-item"><span class="ds-num" id="dsConsecutive">—</span><span>连续分红</span></div>
-          <div class="ds-item"><span class="ds-num" id="dsSum3y">—</span><span>近3年累计</span></div>
-          <div class="ds-item"><span class="ds-num" id="dsSum5y">—</span><span>近5年累计</span></div>
-          <div class="ds-item"><span class="ds-num" id="dsYoy">—</span><span>分红同比</span></div>
-        </div>
-        <p class="div-hint">按本次已公布分红测算，股权登记日收市后登记在册可参与本次权益分派。</p>
       </div>
-
-      <!-- 历史分红表格 -->
-      <div class="hist-div-wrap">
-        <h4 class="sub-sec-title">历年分红记录</h4>
-        <div class="hist-table-wrap">
-          <table class="hist-table">
-            <thead>
-              <tr><th>年度</th><th>每股分红</th><th>股权登记日</th><th>除息日</th><th>发放日</th></tr>
-            </thead>
-            <tbody id="histDivBody"></tbody>
-          </table>
-        </div>
-        <p class="hist-empty" id="histDivEmpty" hidden>暂无历史分红数据</p>
+      <div class="detail-note-empty" id="detailNoteEmpty" hidden>
+        <p>暂未记录个人投资笔记（关注原因、买卖逻辑或投资思路）</p>
+        <button type="button" class="btn btn-sm btn-outline" id="btnDetailAddNote">＋ 添加备注</button>
       </div>
-      <p class="hist-note">分红信息仅供参考，具体权益以上市公司公告及交易所最终披露为准。除权除息后股价会相应调整，获得分红不代表无风险收益。</p>
     </section>
 
-    <!-- 🎯 目标价格精确触达历史 (专项功能升级) -->
+    <!-- 3. 最近一次目标价格触达 (高频核心 · 默认展开最近一次，历史折叠) -->
     <section class="detail-section" id="dtTouchSection">
       <div class="section-title-bar">
-        <h3>🎯 目标价格触达历史</h3>
+        <h3>🎯 目标价格触达</h3>
         <span class="sec-badge" id="dtTouchStatBadge">触达 0 次</span>
       </div>
 
-      <!-- 最近一次触达高光卡片 -->
+      <!-- 最近一次触达高光卡片 (默认展开) -->
       <div class="touch-highlight-card" id="dtTouchHighlight" hidden>
         <div class="th-top">
           <span class="th-badge" id="dtThBadge">🔴 卖出目标已触达</span>
@@ -696,204 +678,348 @@
         </div>
       </div>
 
-      <!-- 触达频次统计看板 -->
-      <div class="touch-stats-bar" id="dtTouchStatsBar">
-        <div class="tsb-item"><span>总触达次数</span><b id="dtTsbTotal">0</b></div>
-        <div class="tsb-item"><span>卖出触达</span><b id="dtTsbSell" class="text-sell">0</b></div>
-        <div class="tsb-item"><span>买入触达</span><b id="dtTsbBuy" class="text-buy">0</b></div>
-        <div class="tsb-item"><span>近30天频率</span><b id="dtTsb30d">0 次</b></div>
-      </div>
-
-      <!-- 触达历史列表 -->
-      <div class="touch-list" id="dtTouchList"></div>
       <div class="touch-empty" id="dtTouchEmpty" hidden>
         <p>暂无目标价格触达记录</p>
         <small>当行情首次越过你的买入价或卖出价时，系统会自动记录精确秒级快照</small>
       </div>
 
-      <div class="disclaimer-note">
-        <p>⚠️ 价格触达表示监控系统检测到行情达到设定的目标价格，不代表实际成交或投资建议；</p>
-        <p>💡 收到提醒时当前价格可能已发生波动，触达后表现为相对于触达价格的即时变动测算。</p>
-      </div>
+      <!-- 历史触达折叠展开区 (默认折叠) -->
+      <details class="detail-sub-accordion" id="dtHistoryAccordion" hidden>
+        <summary class="sub-acc-header">
+          <span id="dtHistoryAccTitle">查看全部历史触达 (共 0 次)</span>
+          <span class="sub-acc-chevron">›</span>
+        </summary>
+        <div class="sub-acc-body">
+          <div class="touch-stats-bar" id="dtTouchStatsBar">
+            <div class="tsb-item"><span>总触达</span><b id="dtTsbTotal">0</b></div>
+            <div class="tsb-item"><span>卖出触达</span><b id="dtTsbSell" class="text-sell">0</b></div>
+            <div class="tsb-item"><span>买入触达</span><b id="dtTsbBuy" class="text-buy">0</b></div>
+            <div class="tsb-item"><span>近30天</span><b id="dtTsb30d">0 次</b></div>
+          </div>
+          <div class="touch-list" id="dtTouchList"></div>
+        </div>
+      </details>
     </section>
 
-    <!-- 📈 近52周价格 (以当前为基准滚动52周) -->
-    <section class="detail-section" id="detail52wSection">
+    <!-- 4. 我的持仓 (高频核心 · 有持仓默认展开，无持仓极简提示) -->
+    <section class="detail-section" id="detailHoldingSection">
       <div class="section-title-bar">
-        <div class="title-with-info">
-          <h3>📈 近52周价格</h3>
-          <button type="button" class="fund-info-btn" data-explain="w52Range" aria-label="52周价格解释">ⓘ</button>
-        </div>
-        <span class="sec-badge" id="w52Badge">以今天向前滚动52周</span>
+        <h3>💼 我的持仓</h3>
+        <span class="sec-badge" id="detailHoldingBadge">暂无持仓</span>
       </div>
-
-      <div class="w52-grid" id="w52Grid">
-        <div class="w52-card">
-          <div class="w52-lab">
-            <span>52周最高价</span>
-            <button type="button" class="fund-info-btn" data-explain="high52w" aria-label="52周最高解释">ⓘ</button>
-          </div>
-          <div class="w52-val" id="w52High">—</div>
-          <div class="w52-hint" id="w52DistHigh">距最高 —</div>
-        </div>
-        <div class="w52-card">
-          <div class="w52-lab">
-            <span>52周最低价</span>
-            <button type="button" class="fund-info-btn" data-explain="low52w" aria-label="52周最低解释">ⓘ</button>
-          </div>
-          <div class="w52-val" id="w52Low">—</div>
-          <div class="w52-hint" id="w52DistLow">距最低 —</div>
-        </div>
-        <div class="w52-card">
-          <div class="w52-lab">
-            <span>当前价格</span>
-          </div>
-          <div class="w52-val" id="w52Cur">—</div>
-          <div class="w52-hint" id="w52CurHint">最新价格</div>
-        </div>
-      </div>
-
-      <!-- 52周区间分位条 -->
-      <div class="w52-bar-box" id="w52BarBox">
-        <div class="w52-bar-labels">
-          <span id="w52BarLow">最低 ¥--</span>
-          <span id="w52BarPos">位于 52 周区间 --% 分位</span>
-          <span id="w52BarHigh">最高 ¥--</span>
-        </div>
-        <div class="w52-bar-track">
-          <div class="w52-bar-fill" id="w52BarFill" style="width: 0%;"></div>
-        </div>
-      </div>
-
-      <p class="hist-note" id="w52Note">以今天为基准向前滚动52周的最高与最低实际交易价，每天随时间推移更新；与「2026年至今」严格区分。</p>
-    </section>
-
-    <!-- 📊 今日市场与大盘表现对比 -->
-    <section class="detail-section" id="detailMarketSection">
-      <div class="section-title-bar">
-        <div class="title-with-info">
-          <h3>📊 今日市场对比</h3>
-          <button type="button" class="fund-info-btn" data-explain="marketCompare" aria-label="大盘对比解释">ⓘ</button>
-        </div>
-        <span class="sec-badge" id="detailMarketTime">--:--:--</span>
-      </div>
-
-      <div class="market-compare-box" id="detailMarketCompareBox">
-        <div class="mcb-grid" id="detailMarketGrid">
-          <!-- 四大指数由 JS 渲染 -->
-        </div>
-        <div class="mcb-summary" id="detailMarketSummary">
-          <!-- 我的标的 vs 大盘相对强弱 -->
-        </div>
+      <div class="detail-holding-box" id="detailHoldingBox">
+        <!-- JS 动态渲染持仓详情 -->
       </div>
     </section>
 
-    <!-- 🏢 公司基本面（PE、PB、ROE 估值与盈利能力） -->
-    <section class="detail-section" id="detailFundamentalsSection" hidden>
-      <div class="section-title-bar">
-        <h3>🏢 公司基本面</h3>
-        <span class="sec-badge" id="fundMetricBadge">估值与盈利</span>
-      </div>
+    <!-- 分隔提示：更多扩展信息 -->
+    <div class="more-info-divider">
+      <span class="mid-line"></span>
+      <span class="mid-text">更多扩展信息</span>
+      <span class="mid-line"></span>
+    </div>
 
-      <div class="fundamentals-grid" id="fundamentalsGrid">
-        <!-- PE 卡片 -->
-        <div class="fund-card">
-          <div class="fund-card-head">
-            <span class="fund-lab">现在贵不贵</span>
-            <button type="button" class="fund-info-btn" data-explain="pe" aria-label="市盈率解释">ⓘ</button>
+    <!-- 5. 更多信息手风琴组 (低频参考 · 默认折叠，带动态摘要) -->
+    <div class="detail-accordion-group">
+
+      <!-- 🏢 公司基本面 (股票显示，ETF自动隐藏) -->
+      <details class="detail-accordion" id="accFundamentals" hidden>
+        <summary class="accordion-header">
+          <div class="acc-left">
+            <span class="acc-icon">🏢</span>
+            <div class="acc-info">
+              <div class="acc-title-row">
+                <span class="acc-title">公司基本面</span>
+                <button type="button" class="fund-info-btn stop-prop" data-explain="pe" aria-label="市盈率解释">ⓘ</button>
+              </div>
+              <span class="acc-summary" id="sumFundamentals">正在获取估值与盈利数据…</span>
+            </div>
           </div>
-          <div class="fund-val-row">
-            <span class="fund-name">PE (TTM)</span>
-            <b class="fund-val" id="fundPeVal">—</b>
+          <span class="acc-chevron">›</span>
+        </summary>
+        <div class="accordion-body">
+          <div class="fundamentals-grid" id="fundamentalsGrid">
+            <!-- PE 卡片 -->
+            <div class="fund-card">
+              <div class="fund-card-head">
+                <span class="fund-lab">现在贵不贵</span>
+                <button type="button" class="fund-info-btn stop-prop" data-explain="pe" aria-label="市盈率解释">ⓘ</button>
+              </div>
+              <div class="fund-val-row">
+                <span class="fund-name">PE (TTM)</span>
+                <b class="fund-val" id="fundPeVal">—</b>
+              </div>
+              <p class="fund-hint" id="fundPeHint">市场估值倍数</p>
+            </div>
+
+            <!-- PB 卡片 -->
+            <div class="fund-card">
+              <div class="fund-card-head">
+                <span class="fund-lab">股价比公司家底高多少</span>
+                <button type="button" class="fund-info-btn stop-prop" data-explain="pb" aria-label="市净率解释">ⓘ</button>
+              </div>
+              <div class="fund-val-row">
+                <span class="fund-name">PB (MRQ)</span>
+                <b class="fund-val" id="fundPbVal">—</b>
+              </div>
+              <p class="fund-hint" id="fundPbHint">每股净资产倍数</p>
+            </div>
+
+            <!-- ROE 卡片 -->
+            <div class="fund-card">
+              <div class="fund-card-head">
+                <span class="fund-lab">公司赚钱能力</span>
+                <button type="button" class="fund-info-btn stop-prop" data-explain="roe" aria-label="净资产收益率解释">ⓘ</button>
+              </div>
+              <div class="fund-val-row">
+                <span class="fund-name" id="fundRoeName">ROE</span>
+                <b class="fund-val" id="fundRoeVal">—</b>
+              </div>
+              <p class="fund-hint" id="fundRoeHint">净资产收益率</p>
+            </div>
           </div>
-          <p class="fund-hint" id="fundPeHint">市场估值倍数</p>
+          <p class="hist-note">基本面指标仅供估值与盈利认知参考，不构成任何买入/卖出投资建议。投资需结合行业前景与风险综合判断。</p>
         </div>
+      </details>
 
-        <!-- PB 卡片 -->
-        <div class="fund-card">
-          <div class="fund-card-head">
-            <span class="fund-lab">股价比公司家底高多少</span>
-            <button type="button" class="fund-info-btn" data-explain="pb" aria-label="市净率解释">ⓘ</button>
+      <!-- 📈 近52周价格 -->
+      <details class="detail-accordion" id="acc52w">
+        <summary class="accordion-header">
+          <div class="acc-left">
+            <span class="acc-icon">📈</span>
+            <div class="acc-info">
+              <div class="acc-title-row">
+                <span class="acc-title">近52周价格</span>
+                <button type="button" class="fund-info-btn stop-prop" data-explain="w52Range" aria-label="52周价格解释">ⓘ</button>
+              </div>
+              <span class="acc-summary" id="sum52w">正在计算52周极值…</span>
+            </div>
           </div>
-          <div class="fund-val-row">
-            <span class="fund-name">PB (MRQ)</span>
-            <b class="fund-val" id="fundPbVal">—</b>
+          <span class="acc-chevron">›</span>
+        </summary>
+        <div class="accordion-body">
+          <div class="w52-grid" id="w52Grid">
+            <div class="w52-card">
+              <div class="w52-lab">
+                <span>52周最高价</span>
+                <button type="button" class="fund-info-btn stop-prop" data-explain="high52w" aria-label="52周最高解释">ⓘ</button>
+              </div>
+              <div class="w52-val" id="w52High">—</div>
+              <div class="w52-hint" id="w52DistHigh">距最高 —</div>
+            </div>
+            <div class="w52-card">
+              <div class="w52-lab">
+                <span>52周最低价</span>
+                <button type="button" class="fund-info-btn stop-prop" data-explain="low52w" aria-label="52周最低解释">ⓘ</button>
+              </div>
+              <div class="w52-val" id="w52Low">—</div>
+              <div class="w52-hint" id="w52DistLow">距最低 —</div>
+            </div>
+            <div class="w52-card">
+              <div class="w52-lab">
+                <span>当前价格</span>
+              </div>
+              <div class="w52-val" id="w52Cur">—</div>
+              <div class="w52-hint" id="w52CurHint">最新价格</div>
+            </div>
           </div>
-          <p class="fund-hint" id="fundPbHint">每股净资产倍数</p>
-        </div>
 
-        <!-- ROE 卡片 -->
-        <div class="fund-card">
-          <div class="fund-card-head">
-            <span class="fund-lab">公司赚钱能力</span>
-            <button type="button" class="fund-info-btn" data-explain="roe" aria-label="净资产收益率解释">ⓘ</button>
+          <!-- 52周区间分位条 -->
+          <div class="w52-bar-box" id="w52BarBox">
+            <div class="w52-bar-labels">
+              <span id="w52BarLow">最低 ¥--</span>
+              <span id="w52BarPos">位于 52 周区间 --% 分位</span>
+              <span id="w52BarHigh">最高 ¥--</span>
+            </div>
+            <div class="w52-bar-track">
+              <div class="w52-bar-fill" id="w52BarFill" style="width: 0%;"></div>
+            </div>
           </div>
-          <div class="fund-val-row">
-            <span class="fund-name" id="fundRoeName">ROE</span>
-            <b class="fund-val" id="fundRoeVal">—</b>
+
+          <p class="hist-note" id="w52Note">以今天为基准向前滚动52周的最高与最低实际交易价，每天随时间推移更新；与「2026年至今」严格区分。</p>
+        </div>
+      </details>
+
+      <!-- 📊 今日市场对比 -->
+      <details class="detail-accordion" id="accMarket">
+        <summary class="accordion-header">
+          <div class="acc-left">
+            <span class="acc-icon">📊</span>
+            <div class="acc-info">
+              <div class="acc-title-row">
+                <span class="acc-title">今日市场对比</span>
+                <button type="button" class="fund-info-btn stop-prop" data-explain="marketCompare" aria-label="大盘对比解释">ⓘ</button>
+              </div>
+              <span class="acc-summary" id="sumMarket">正在获取大盘行情…</span>
+            </div>
           </div>
-          <p class="fund-hint" id="fundRoeHint">净资产收益率</p>
+          <span class="acc-chevron">›</span>
+        </summary>
+        <div class="accordion-body">
+          <div class="market-compare-box" id="detailMarketCompareBox">
+            <div class="mcb-grid" id="detailMarketGrid">
+              <!-- 四大指数由 JS 渲染 -->
+            </div>
+            <div class="mcb-summary" id="detailMarketSummary">
+              <!-- 我的标的 vs 大盘相对强弱 -->
+            </div>
+          </div>
         </div>
-      </div>
+      </details>
 
-      <p class="hist-note">基本面指标仅供估值与盈利认知参考，不构成任何买入/卖出投资建议。投资需结合行业前景与风险综合判断。</p>
-    </section>
+      <!-- 📅 历史行情与统计 -->
+      <details class="detail-accordion" id="accHist">
+        <summary class="accordion-header">
+          <div class="acc-left">
+            <span class="acc-icon">📅</span>
+            <div class="acc-info">
+              <div class="acc-title-row">
+                <span class="acc-title">历史行情与统计</span>
+                <button type="button" class="fund-info-btn stop-prop" data-explain="yearHighLow" aria-label="历史行情解释">ⓘ</button>
+              </div>
+              <span class="acc-summary" id="sumHist">正在统计多周期表现…</span>
+            </div>
+          </div>
+          <span class="acc-chevron">›</span>
+        </summary>
+        <div class="accordion-body">
+          <!-- 核心指标（年度表现 + 年内高低点） -->
+          <section class="metric-matrix" style="margin-bottom: 12px;">
+            <div class="metric-row">
+              <div class="metric"><b id="metricY2025">—</b><span>2025年至今</span></div>
+              <div class="metric"><b id="metricY2026">—</b><span>2026年至今</span></div>
+              <div class="metric"><b id="metricLast">—</b><span>当前价格</span></div>
+            </div>
+            <div class="metric-row">
+              <div class="metric"><b id="metricYearHigh">—</b><span>2026年最高</span></div>
+              <div class="metric"><b id="metricYearLow">—</b><span>2026年最低</span></div>
+              <div class="metric"><b id="metricDistHigh">—</b><span>距年内高点</span></div>
+            </div>
+          </section>
 
-    <!-- 历史行情与统计专区 -->
-    <section class="hist">
-      <div class="section-title-bar">
-        <h3>📊 历史行情</h3>
-      </div>
+          <!-- 历史行情统计卡（近 20 交易日与近期表现） -->
+          <div class="hist-stats-card" id="histStatsCard">
+            <div class="hs-grid">
+              <div class="hs-item"><b id="hsUpDays">—</b><span>近20日上涨</span></div>
+              <div class="hs-item"><b id="hsDownDays">—</b><span>近20日下跌</span></div>
+              <div class="hs-item"><b id="hsFlatDays">—</b><span>近20日持平</span></div>
+              <div class="hs-item"><b id="hsUpProb">—</b><span>上涨概率</span></div>
+              <div class="hs-item"><b id="hsMaxUp" class="up">—</b><span>单日最大涨</span></div>
+              <div class="hs-item"><b id="hsMaxDown" class="down">—</b><span>单日最大跌</span></div>
+            </div>
+            <div class="hs-rec-row">
+              <span class="hs-rec-item">近5日 <b id="hsR5d">—</b></span>
+              <span class="hs-rec-item">近10日 <b id="hsR10d">—</b></span>
+              <span class="hs-rec-item">近20日 <b id="hsR20d">—</b></span>
+            </div>
+          </div>
 
-      <!-- 历史行情统计卡（近 20 交易日与近期表现） -->
-      <div class="hist-stats-card" id="histStatsCard">
-        <div class="hs-grid">
-          <div class="hs-item"><b id="hsUpDays">—</b><span>近20日上涨</span></div>
-          <div class="hs-item"><b id="hsDownDays">—</b><span>近20日下跌</span></div>
-          <div class="hs-item"><b id="hsFlatDays">—</b><span>近20日持平</span></div>
-          <div class="hs-item"><b id="hsUpProb">—</b><span>上涨概率</span></div>
-          <div class="hs-item"><b id="hsMaxUp" class="up">—</b><span>单日最大涨</span></div>
-          <div class="hs-item"><b id="hsMaxDown" class="down">—</b><span>单日最大跌</span></div>
+          <div class="seg seg-block" id="histPeriod">
+            <button data-period="day" class="on">日</button>
+            <button data-period="week">周</button>
+            <button data-period="month">月</button>
+            <button data-period="quarter">季度</button>
+            <button data-period="year">年</button>
+          </div>
+          <div class="seg seg-block wrap" id="histRange">
+            <button data-range="1m" class="on">近1月</button>
+            <button data-range="3m">近3月</button>
+            <button data-range="6m">近6月</button>
+            <button data-range="26ytd">26至今</button>
+            <button data-range="25ytd">25至今</button>
+            <button data-range="all">全部</button>
+            <button data-range="custom">自定义</button>
+          </div>
+          <div class="hist-custom" id="histCustom" hidden>
+            <input type="date" id="histFrom">
+            <span>至</span>
+            <input type="date" id="histTo">
+            <button class="btn btn-sm" id="histApply">应用</button>
+          </div>
+          <div class="hist-table-wrap">
+            <table class="hist-table">
+              <thead><tr><th>日期</th><th>收盘价</th><th>涨跌</th><th>涨跌幅</th></tr></thead>
+              <tbody id="histBody"></tbody>
+            </table>
+          </div>
+          <p class="hist-empty" id="histEmpty" hidden>该区间暂无数据</p>
+          <p class="hist-note">日线为前复权收盘价，仅展示历史行情，不构成投资建议</p>
         </div>
-        <div class="hs-rec-row">
-          <span class="hs-rec-item">近5日 <b id="hsR5d">—</b></span>
-          <span class="hs-rec-item">近10日 <b id="hsR10d">—</b></span>
-          <span class="hs-rec-item">近20日 <b id="hsR20d">—</b></span>
+      </details>
+
+      <!-- 💰 分红雷达 -->
+      <details class="detail-accordion" id="accDividend" hidden>
+        <summary class="accordion-header">
+          <div class="acc-left">
+            <span class="acc-icon">💰</span>
+            <div class="acc-info">
+              <div class="acc-title-row">
+                <span class="acc-title" id="accDivTitle">分红雷达</span>
+                <button type="button" class="fund-info-btn stop-prop" data-explain="dividend" aria-label="分红解释">ⓘ</button>
+              </div>
+              <span class="acc-summary" id="sumDividend">正在查询分红记录…</span>
+            </div>
+          </div>
+          <span class="acc-chevron">›</span>
+        </summary>
+        <div class="accordion-body">
+          <div class="div-radar-card" id="divRadarCard">
+            <div class="div-main-row">
+              <div class="div-amount-box">
+                <span class="div-lab">本次每股分红</span>
+                <b class="div-val" id="divPerShare">—</b>
+              </div>
+              <div class="div-yield-box">
+                <div class="y-row"><span>当前股息率</span><b id="divCurrentYield">—</b></div>
+                <div class="y-row"><span id="divBuyYieldLabel">按买入价股息率</span><b id="divBuyYield">—</b></div>
+              </div>
+            </div>
+            <div class="div-dates-grid">
+              <div class="d-item">
+                <span class="d-lab">股权登记日</span>
+                <b class="d-val" id="divRecordDate">—</b>
+                <span class="d-countdown" id="divCountdown">—</span>
+              </div>
+              <div class="d-item">
+                <span class="d-lab">除息日</span>
+                <b class="d-val" id="divExDate">—</b>
+                <span class="d-sub">开盘除权除息</span>
+              </div>
+              <div class="d-item">
+                <span class="d-lab">红利发放日</span>
+                <b class="d-val" id="divPayDate">—</b>
+                <span class="d-sub">现金分红到账</span>
+              </div>
+            </div>
+            <div class="div-stats-row" id="divStatsRow">
+              <div class="ds-item"><span class="ds-num" id="dsConsecutive">—</span><span>连续分红</span></div>
+              <div class="ds-item"><span class="ds-num" id="dsSum3y">—</span><span>近3年累计</span></div>
+              <div class="ds-item"><span class="ds-num" id="dsSum5y">—</span><span>近5年累计</span></div>
+              <div class="ds-item"><span class="ds-num" id="dsYoy">—</span><span>分红同比</span></div>
+            </div>
+            <p class="div-hint">按本次已公布分红测算，股权登记日收市后登记在册可参与本次权益分派。</p>
+          </div>
+
+          <!-- 历史分红表格 -->
+          <div class="hist-div-wrap">
+            <h4 class="sub-sec-title">历年分红记录</h4>
+            <div class="hist-table-wrap">
+              <table class="hist-table">
+                <thead>
+                  <tr><th>年度</th><th>每股分红</th><th>股权登记日</th><th>除息日</th><th>发放日</th></tr>
+                </thead>
+                <tbody id="histDivBody"></tbody>
+              </table>
+            </div>
+            <p class="hist-empty" id="histDivEmpty" hidden>暂无历史分红数据</p>
+          </div>
+          <p class="hist-note">分红信息仅供参考，具体权益以上市公司公告及交易所最终披露为准。除权除息后股价会相应调整，获得分红不代表无风险收益。</p>
         </div>
-      </div>
+      </details>
 
-      <div class="seg seg-block" id="histPeriod">
-        <button data-period="day" class="on">日</button>
-        <button data-period="week">周</button>
-        <button data-period="month">月</button>
-        <button data-period="quarter">季度</button>
-        <button data-period="year">年</button>
-      </div>
-      <div class="seg seg-block wrap" id="histRange">
-        <button data-range="1m" class="on">近1月</button>
-        <button data-range="3m">近3月</button>
-        <button data-range="6m">近6月</button>
-        <button data-range="26ytd">26至今</button>
-        <button data-range="25ytd">25至今</button>
-        <button data-range="all">全部</button>
-        <button data-range="custom">自定义</button>
-      </div>
-      <div class="hist-custom" id="histCustom" hidden>
-        <input type="date" id="histFrom">
-        <span>至</span>
-        <input type="date" id="histTo">
-        <button class="btn btn-sm" id="histApply">应用</button>
-      </div>
-      <div class="hist-table-wrap">
-        <table class="hist-table">
-          <thead><tr><th>日期</th><th>收盘价</th><th>涨跌</th><th>涨跌幅</th></tr></thead>
-          <tbody id="histBody"></tbody>
-        </table>
-      </div>
-      <p class="hist-empty" id="histEmpty" hidden>该区间暂无数据</p>
-      <p class="hist-note">日线为前复权收盘价，仅展示历史行情，不构成投资建议</p>
-    </section>
+    </div>
 
+    <!-- 6. 底部操作按钮 -->
     <div class="detail-actions">
       <button class="btn btn-block" id="detailEdit">✏️ 编辑监控</button>
       <button class="btn btn-block" id="detailToggle">⏸ 暂停监控</button>
@@ -926,7 +1052,7 @@
       <button id="guideBackBtn" class="icon-btn" aria-label="返回">←</button>
       <div class="ghb-info">
         <h2 class="ghb-title">📖 盯价 · 新手指南</h2>
-        <span class="guide-progress-badge" id="guideProgressBadge">已了解 0/8 节</span>
+        <span class="guide-progress-badge" id="guideProgressBadge">已了解 0/12 节</span>
       </div>
     </div>
 
@@ -934,7 +1060,7 @@
     <section class="guide-hero-card">
       <div class="gh-tag">🌱 零基础起步</div>
       <h1 class="gh-h1">你定价格，我来盯。</h1>
-      <p class="gh-sub">盯价不是帮你预测股票涨跌，而是帮助你管理自己已经决定关注的股票和 ETF。当市场价格达到你设定的买入或卖出价时，系统第一时间提醒你。</p>
+      <p class="gh-sub">盯价不是帮你预测股票涨跌，而是帮助你管理自己已经决定关注的股票和 ETF。无论中国 A 股还是美股，当市场价格达到你设定的买入或卖出价时，系统第一时间提醒你。</p>
       <div class="gh-btn-group">
         <button class="btn btn-primary" id="btnGuideJumpQuick">⚡ 5分钟快速上手</button>
         <button class="btn btn-outline" id="btnGuideGoHome">直接开始使用</button>
@@ -943,19 +1069,23 @@
 
     <!-- 搜索栏 -->
     <div class="guide-search-box">
-      <input type="search" id="guideSearchInput" placeholder="🔍 搜你想了解的：ETF、买入价、触达、分红、浮盈…" aria-label="搜索新手指南">
+      <input type="search" id="guideSearchInput" placeholder="🔍 搜你想了解的：ETF、买入价、触达、分红、美股、NVDA、美元…" aria-label="搜索新手指南">
     </div>
 
     <!-- 章节快速导航胶囊 -->
     <div class="guide-pills-nav" id="guidePillsNav">
       <button class="guide-pill on" data-sec="secQuick">⚡ 快速上手</button>
+      <button class="guide-pill" data-sec="secOverview">🌍 盯价支持什么</button>
       <button class="guide-pill" data-sec="secConcept">🏢 股票与ETF</button>
       <button class="guide-pill" data-sec="secQuote">📈 看懂行情</button>
       <button class="guide-pill" data-sec="secTouch">🎯 目标触达</button>
+      <button class="guide-pill" data-sec="secUsMarket">🇺🇸 美国市场</button>
       <button class="guide-pill" data-sec="secPortfolio">💼 资产与持仓</button>
       <button class="guide-pill" data-sec="secDividend">💰 分红雷达</button>
-      <button class="guide-pill" data-sec="secPitfalls">⚠️ 避坑10条</button>
+      <button class="guide-pill" data-sec="secIndex">📊 市场指数</button>
+      <button class="guide-pill" data-sec="secPitfalls">⚠️ 避坑守则</button>
       <button class="guide-pill" data-sec="secFaq">❓ 常见问题</button>
+      <button class="guide-pill" data-sec="secUsQuick">🚀 美股快速开始</button>
     </div>
 
     <!-- 第 0 课：5分钟极简四步上手 -->
@@ -970,7 +1100,7 @@
           <div class="gsc-num">1</div>
           <div class="gsc-content">
             <b>添加股票 / ETF</b>
-            <p>输入你真正关注的股票名称或 6 位代码（例如：计算机ETF <code>512720</code> 或 博威合金 <code>601137</code>）。</p>
+            <p>选择市场（🇨🇳 中国 或 🇺🇸 美股），输入你真正关注的股票或 ETF 代码。中国市场如 <code>601137</code>、<code>512720</code>；美股如 <code>NVDA</code>、<code>QQQ</code>。</p>
           </div>
         </div>
         <div class="g-step-card">
@@ -984,7 +1114,7 @@
           <div class="gsc-num">3</div>
           <div class="gsc-content">
             <b>开启自动盯盘</b>
-            <p>交易日 09:00~15:00 期间，云端每分钟自动巡检行情，无需你时时刻刻盯着手机看盘。</p>
+            <p>中国市场和美股市场各有不同的交易时段，云端会根据不同市场自动巡检行情，无需你时时刻刻盯着手机看盘。</p>
           </div>
         </div>
         <div class="g-step-card">
@@ -1000,10 +1130,95 @@
       </div>
     </section>
 
-    <!-- 第 1 课：股票与 ETF 基础认识 -->
-    <section class="guide-section" id="secConcept" data-guide-sec="1">
+    <!-- 第 1.5 课：盯价支持什么（中美双市场总览） -->
+    <section class="guide-section" id="secOverview" data-guide-sec="1">
       <div class="gs-head">
         <span class="gs-num">02</span>
+        <h3 class="gs-title">🌍 盯价支持什么？</h3>
+      </div>
+      <p class="gs-lead">盯价同时支持中国市场和美国市场，你可以在同一个盯价里管理所有关注的股票和 ETF。</p>
+
+      <div class="guide-card">
+        <h4>盯价支持两个市场</h4>
+        <div class="guide-steps-grid">
+          <div class="g-step-card">
+            <div class="gsc-num">🇨🇳</div>
+            <div class="gsc-content">
+              <b>中国市场</b>
+              <p>A 股股票、中国 ETF</p>
+            </div>
+          </div>
+          <div class="g-step-card">
+            <div class="gsc-num">🇺🇸</div>
+            <div class="gsc-content">
+              <b>美国市场</b>
+              <p>美股股票、美股 ETF</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="guide-card">
+        <h4>中国市场和美国市场有什么不同？</h4>
+        <div class="guide-table-wrap">
+          <table class="guide-table">
+            <thead>
+              <tr>
+                <th>对比维度</th>
+                <th>🇨🇳 中国市场</th>
+                <th>🇺🇸 美国市场</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>股票代码</b></td>
+                <td>6 位数字，如 <code>601137</code></td>
+                <td>英文字母，如 <code>NVDA</code></td>
+              </tr>
+              <tr>
+                <td><b>货币</b></td>
+                <td>人民币 ¥</td>
+                <td>美元 $</td>
+              </tr>
+              <tr>
+                <td><b>行情来源</b></td>
+                <td>同花顺</td>
+                <td>Yahoo Finance</td>
+              </tr>
+              <tr>
+                <td><b>交易时间</b></td>
+                <td>北京时间交易日</td>
+                <td>美国市场交易日</td>
+              </tr>
+              <tr>
+                <td><b>股票</b></td>
+                <td>✅ 支持</td>
+                <td>✅ 支持</td>
+              </tr>
+              <tr>
+                <td><b>ETF</b></td>
+                <td>✅ 支持</td>
+                <td>✅ 支持</td>
+              </tr>
+              <tr>
+                <td><b>涨跌颜色</b></td>
+                <td>红涨绿跌</td>
+                <td>红涨绿跌（统一中国习惯）</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="guide-tip-box">
+        💡 <b>简单记住</b>：不管中国股票还是美股，盯价里的操作方式完全一样——选市场、输代码、设价格、等提醒。
+      </div>
+    </section>
+
+    <!-- 第 1 课：股票与 ETF 基础认识 -->
+    <section class="guide-section" id="secConcept" data-guide-sec="2">
+      <div class="gs-head">
+        <span class="gs-num">03</span>
         <h3 class="gs-title">🏢 股票与 ETF 是什么？</h3>
       </div>
       
@@ -1063,41 +1278,60 @@
 
       <div class="guide-card">
         <h4>4. 股票代码是什么？</h4>
-        <p>股票/ETF 代码是证券在交易所的“身份证号”（如 <code>601137</code>、<code>512720</code>）。</p>
+        <p>股票/ETF 代码是证券在交易所的"身份证号"。</p>
+        <p><strong>🇨🇳 中国市场</strong>：使用 6 位数字代码（如 <code>601137</code>、<code>512720</code>）。</p>
+        <p><strong>🇺🇸 美国市场</strong>：使用英文字母代码（如 <code>AAPL</code>、<code>NVDA</code>、<code>TSLA</code>、<code>MSFT</code>）。</p>
         <p class="text-sub">代码本身只是代号，不代表价格高低。输入正确代码，系统才能准确获取其行情。</p>
+        <div class="guide-warning-box">
+          ⚠️ <b>注意</b>：不要把美股代码当成中国股票一样填写 6 位数字。美股代码是英文字母，如 <code>NVDA</code>，而不是 <code>123456</code>。
+        </div>
+      </div>
+
+      <div class="guide-card">
+        <h4>5. 美股 ETF 和中国 ETF 的区别</h4>
+        <p>两者都是 ETF 产品，但投资的市场和资产不同。</p>
+        <p><strong>中国 ETF</strong>：如 <code>510300</code>（沪深300ETF）、<code>159915</code>（创业板ETF）。</p>
+        <p><strong>美股 ETF</strong>：如 <code>QQQ</code>（纳斯达克100ETF）、<code>SPY</code>（标普500ETF）、<code>VOO</code>（先锋标普500ETF）。</p>
+        <p class="text-sub">两者在盯价中都可以：设置买入价、设置卖出价、设置价格提醒、查看历史行情。但数据来源、币种和交易时间不同。</p>
       </div>
     </section>
 
     <!-- 第 2 课：看懂行情与价格变动 -->
-    <section class="guide-section" id="secQuote" data-guide-sec="2">
+    <section class="guide-section" id="secQuote" data-guide-sec="3">
       <div class="gs-head">
-        <span class="gs-num">03</span>
+        <span class="gs-num">04</span>
         <h3 class="gs-title">📈 看懂行情与价格变动</h3>
       </div>
 
       <div class="guide-card">
         <h4>1. 当前价格</h4>
         <p>这是交易所当前最新撮合成交的价格。</p>
-        <p class="text-sub">在交易时间内（09:30~11:30、13:00~15:00），买卖双方在不断挂单撮合，因此价格每时每刻都在变动，这是正常现象。</p>
+        <p class="text-sub">中国市场在交易时间内（09:30~11:30、13:00~15:00），美股在美国交易日的交易时段内，买卖双方在不断挂单撮合，因此价格每时每刻都在变动。</p>
       </div>
 
       <div class="guide-card">
         <h4>2. 涨跌幅（如 +2.73% 或 -1.50%）</h4>
         <p>代表<strong>今天当前价格相对于昨天收盘价的涨跌百分比</strong>。</p>
-        <p class="text-sub">中国 A 股规定红色代表上涨（+），绿色代表下跌（-）。如果为 0.00% 则代表与昨天收盘价持平。</p>
+        <p class="text-sub">盯价统一使用红色代表上涨（+），绿色代表下跌（-），中国市场和美股市场都一样。虽然美国市场很多软件通常使用绿色表示上涨，但盯价为了符合中国用户习惯，统一使用红涨绿跌。</p>
       </div>
 
       <div class="guide-card">
-        <h4>3. 年内最高收盘价 与 年内最低收盘价</h4>
-        <p>记录了今年以来该股票出现过的最高价与最低价区间。</p>
-        <p class="text-sub">帮助你一眼看清：当前价格是在“山顶”（接近年内高点）、“山腰”还是“谷底”（接近年内低点），避免盲目追高。</p>
+        <h4>3. 美股价格使用美元</h4>
+        <p>中国股票价格以<strong>人民币 ¥</strong> 显示，美股价格以<strong>美元 $</strong> 显示。系统会自动在价格前面标注对应的货币符号。</p>
+        <p class="text-sub">例如：中国股票 ¥18.50，美股 $180.25。请注意不要把 $ 和 ¥ 混淆。</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>4. 52周最高价 与 52周最低价</h4>
+        <p>记录了过去一年内该股票出现过的最高价与最低价区间（中国股票和美股都支持）。</p>
+        <p class="text-sub">帮助你一眼看清：当前价格是在"山顶"（接近年内高点）、"山腰"还是"谷底"（接近年内低点），避免盲目追高。</p>
       </div>
     </section>
 
     <!-- 第 3 课：核心功能——买入价、卖出价与价格触达 -->
-    <section class="guide-section" id="secTouch" data-guide-sec="3">
+    <section class="guide-section" id="secTouch" data-guide-sec="4">
       <div class="gs-head">
-        <span class="gs-num">04</span>
+        <span class="gs-num">05</span>
         <h3 class="gs-title">🎯 买入价、卖出价与目标价格触达</h3>
       </div>
 
@@ -1139,15 +1373,106 @@
       </div>
     </section>
 
-    <!-- 第 4 课：个人资产与持仓管理 -->
-    <section class="guide-section" id="secPortfolio" data-guide-sec="4">
+    <!-- 第 5 课：美国市场完整指南 -->
+    <section class="guide-section" id="secUsMarket" data-guide-sec="5">
       <div class="gs-head">
-        <span class="gs-num">05</span>
+        <span class="gs-num">06</span>
+        <h3 class="gs-title">🇺🇸 美国市场</h3>
+      </div>
+      <p class="gs-lead">盯价已经全面支持美股股票和美股 ETF。以下是你需要了解的美股核心知识。</p>
+
+      <div class="guide-card">
+        <h4>1. 如何添加美股</h4>
+        <p>添加美股和添加中国股票的操作完全一样，只需要在第一步选择市场：</p>
+        <div class="guide-steps-grid">
+          <div class="g-step-card">
+            <div class="gsc-num">1</div>
+            <div class="gsc-content">
+              <b>选择 🇺🇸 美股</b>
+              <p>在"市场"一栏点选 🇺🇸 美股</p>
+            </div>
+          </div>
+          <div class="g-step-card">
+            <div class="gsc-num">2</div>
+            <div class="gsc-content">
+              <b>选择类型</b>
+              <p>股票 或 ETF</p>
+            </div>
+          </div>
+          <div class="g-step-card">
+            <div class="gsc-num">3</div>
+            <div class="gsc-content">
+              <b>输入代码</b>
+              <p>股票如 <code>NVDA</code>；ETF 如 <code>QQQ</code></p>
+            </div>
+          </div>
+          <div class="g-step-card">
+            <div class="gsc-num">4</div>
+            <div class="gsc-content">
+              <b>设置价格 → 保存</b>
+              <p>填写买入价（美元）和卖出价（美元），保存即可</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="guide-card">
+        <h4>2. 美股买入价和卖出价</h4>
+        <p>操作方法和中国股票完全一致，自己设置买入价格和卖出价格，等待盯价提醒。</p>
+        <p>例如 NVDA：</p>
+        <p>买入价：<strong>$160</strong> · 卖出价：<strong>$220</strong></p>
+        <p class="text-sub">当价格达到 $160 时：🟢 买入目标已触达。当价格达到 $220 时：🔴 卖出目标已触达。</p>
+        <div class="guide-warning-box">
+          ⚠️ <b>特别提醒</b>：系统只负责提醒，不会自动替你买卖。收到提醒后，由你自己决定是否在券商操作。
+        </div>
+      </div>
+
+      <div class="guide-card">
+        <h4>3. 美股交易时间</h4>
+        <p>美股市场和中国股市的交易时间不同。盯价会根据不同市场自动使用对应的交易时段来判断交易状态。</p>
+        <p class="text-sub">由于美国存在夏令时和冬令时，美股交易时间对应的北京时间每年会有变化，系统会自动处理，你不需要自己计算时差。</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>4. 美股提醒为什么可能和看到的价格不同</h4>
+        <p>和中国股票一样，美股也存在提醒延迟：</p>
+        <p>14:32:18 系统检测到 $160.00 → 发送提醒 → 你 14:33 看到时，价格可能已经变成 $159.85。</p>
+        <p class="text-sub">这是正常现象。行情获取、服务器处理、网络传输、通知推送都可能存在延迟，因此"目标触达价格"和"你收到消息时的当前价格"可能不同。</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>5. 美股详情页</h4>
+        <p>点击美股标的进入详情后，你可以看到：</p>
+        <p>• 当前价格（带 $ 符号）· 涨跌幅</p>
+        <p>• 我的买入价 · 我的卖出价 · 距离目标的幅度</p>
+        <p>• 52周最高价 · 52周最低价</p>
+        <p>• 目标触达历史记录</p>
+        <p>• 历史行情走势</p>
+        <p>• 市场指数对比（个股表现 vs 大盘走势）</p>
+        <p class="text-sub">详情页会自动标注 🇺🇸 美股 · 股票 或 🇺🇸 美股 · ETF 的标识，方便你区分市场。</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>6. 美股资产</h4>
+        <p>如果你同时持有中国股票和美股，资产页面会自动分别显示：</p>
+        <p><strong>🇨🇳 ¥50,000</strong> <span style="color:var(--text-3)">|</span> <strong>🇺🇸 $10,000</strong></p>
+        <p class="text-sub">系统不会直接把人民币和美元相加，而是分开展示。</p>
+      </div>
+
+      <div class="guide-tip-box">
+        💡 <b>一句话总结</b>：美股在盯价中的操作和中国股票几乎完全相同，主要区别就是代码用英文字母、价格用美元、交易时间不同。
+      </div>
+    </section>
+
+    <!-- 第 4 课：个人资产与持仓管理 -->
+    <section class="guide-section" id="secPortfolio" data-guide-sec="6">
+      <div class="gs-head">
+        <span class="gs-num">07</span>
         <h3 class="gs-title">💼 个人资产、持仓与盈亏管理</h3>
       </div>
 
       <div class="guide-card">
-        <h4>1. 监控 $\neq$ 持仓（必须分清）</h4>
+        <h4>1. 监控 ≠ 持仓（必须分清）</h4>
         <p><strong>监控</strong>：只是你把股票加入观察清单，你<strong>不一定拥有它</strong>。</p>
         <p><strong>持仓</strong>：你真正用自己的钱买入并持有的股数和成本。</p>
         <p class="text-sub">你可以只监控不持仓；也可以把已经买入的股票录入持仓，让系统帮你实时计算盈亏。</p>
@@ -1172,9 +1497,9 @@
     </section>
 
     <!-- 第 5 课：分红雷达、股权登记日与股息率 -->
-    <section class="guide-section" id="secDividend" data-guide-sec="5">
+    <section class="guide-section" id="secDividend" data-guide-sec="7">
       <div class="gs-head">
-        <span class="gs-num">06</span>
+        <span class="gs-num">08</span>
         <h3 class="gs-title">💰 分红雷达、股权登记日与股息率</h3>
       </div>
 
@@ -1207,27 +1532,76 @@
         <h4>5. ETF 收益分配与股票分红的区别</h4>
         <p>股票分红依据公司年度决议；ETF 收益分配依据基金合同与实际可供分配利润。盯价严格基于真实公告数据展示，<strong>如果 ETF 暂无分红方案，系统会自动纯净隐藏，绝不显示误导性的 0%</strong>。</p>
       </div>
+
+      <div class="guide-card">
+        <h4>6. 美股分红</h4>
+        <p>美股也有分红（Dividend），但盯价的分红雷达目前专注于中国 A 股市场。</p>
+        <p class="text-sub">美股分红功能后续计划支持，届时会在指南中更新。</p>
+      </div>
+    </section>
+
+    <!-- 第 8 课：市场指数 -->
+    <section class="guide-section" id="secIndex" data-guide-sec="8">
+      <div class="gs-head">
+        <span class="gs-num">09</span>
+        <h3 class="gs-title">📊 怎么看市场指数</h3>
+      </div>
+      <p class="gs-lead">市场指数可以帮你了解"今天整个市场整体怎么样"，就像天气预报帮你了解今天的天气。</p>
+
+      <div class="guide-card">
+        <h4>1. 🇨🇳 中国市场四大指数</h4>
+        <p>盯价会在首页显示今日中国市场的四大核心指数：</p>
+        <p>• <strong>沪指（上证指数）</strong>：反映上海主板全貌</p>
+        <p>• <strong>深指（深证成指）</strong>：反映深圳市场核心蓝筹</p>
+        <p>• <strong>创指（创业板指）</strong>：反映高成长与创新企业</p>
+        <p>• <strong>科创50</strong>：反映科创板硬科技龙头</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>2. 🇺🇸 美国市场四大指数</h4>
+        <p>盯价同时显示美国市场的四大核心指数：</p>
+        <p>• <strong>标普500（S&P 500）</strong>：可以简单理解为美国大型股票整体表现</p>
+        <p>• <strong>纳斯达克综合指数</strong>：用来观察纳斯达克市场整体表现，科技股权重高</p>
+        <p>• <strong>纳斯达克100</strong>：主要反映一批大型非金融公司，科技和成长公司较多</p>
+        <p>• <strong>AI人工智能指数</strong>：用于观察人工智能相关公司的整体表现</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>3. 为什么要看市场指数？</h4>
+        <p>一个简单例子：</p>
+        <p>你的股票今天 <strong>+1%</strong>，标普500 <strong>+2%</strong> → 今天整个美国市场可能比较强</p>
+        <p>你的股票今天 <strong>-2%</strong>，纳斯达克 <strong>-3%</strong> → 今天市场整体也在下跌</p>
+        <div class="guide-warning-box">
+          ⚠️ <b>注意</b>：市场指数对比只是帮助你理解环境，不是买卖建议。指数上涨不代表你就应该买入。
+        </div>
+      </div>
+
+      <div class="guide-card">
+        <h4>4. 详情页也有市场对比</h4>
+        <p>进入每只股票或 ETF 的详情页后，底部会显示你的标的今天涨跌相对大盘指数的强弱对比。</p>
+        <p class="text-sub">中国股票对比沪指、深指、创指；美股对比标普500、纳斯达克、纳斯达克100。帮助你判断是个股独立行情还是跟随大盘波动。</p>
+      </div>
     </section>
 
     <!-- 第 6 课：新手避坑 10 件事 -->
-    <section class="guide-section" id="secPitfalls" data-guide-sec="6">
+    <section class="guide-section" id="secPitfalls" data-guide-sec="9">
       <div class="gs-head">
-        <span class="gs-num">07</span>
-        <h3 class="gs-title">⚠️ 新手最容易误解的 10 件事（避坑守则）</h3>
+        <span class="gs-num">10</span>
+        <h3 class="gs-title">⚠️ 新手避坑守则（中国股票 + 美股）</h3>
       </div>
       
       <div class="guide-pitfalls-list">
         <div class="g-pitfall-item">
           <span class="gpi-num">1</span>
           <div class="gpi-content">
-            <b>达到买入价格 $\neq$ 一定应该买</b>
+            <b>达到买入价格 ≠ 一定应该买</b>
             <p>买入价是你自己设定的关注线，价格跌到这里只代表进入观察区，仍需根据当时大盘和基本面独立判断。</p>
           </div>
         </div>
         <div class="g-pitfall-item">
           <span class="gpi-num">2</span>
           <div class="gpi-content">
-            <b>达到卖出价格 $\neq$ 一定应该卖</b>
+            <b>达到卖出价格 ≠ 一定应该卖</b>
             <p>卖出价是你预设的目标线，达到后系统提醒你，由你自己决定是止盈、减仓还是继续持有。</p>
           </div>
         </div>
@@ -1241,66 +1615,101 @@
         <div class="g-pitfall-item">
           <span class="gpi-num">4</span>
           <div class="gpi-content">
-            <b>系统触达时间 $\neq$ 你的成交时间</b>
+            <b>系统触达时间 ≠ 你的成交时间</b>
             <p>系统记录的是程序捕获达标快照的时间，盯价不会替你下单，更不等于市场撮合成交。</p>
           </div>
         </div>
         <div class="g-pitfall-item">
           <span class="gpi-num">5</span>
           <div class="gpi-content">
-            <b>浮盈 $\neq$ 真正赚到手的钱</b>
+            <b>浮盈 ≠ 真正赚到手的钱</b>
             <p>账面浮盈只是纸面富贵，没有在券商卖出落袋前，任何回撤都可能吞噬浮盈。</p>
           </div>
         </div>
         <div class="g-pitfall-item">
           <span class="gpi-num">6</span>
           <div class="gpi-content">
-            <b>理论利润 $\neq$ 实际利润</b>
+            <b>理论利润 ≠ 实际利润</b>
             <p>情景模拟基于数学假设，实际卖出还要扣除印花税、佣金等交易税费。</p>
           </div>
         </div>
         <div class="g-pitfall-item">
           <span class="gpi-num">7</span>
           <div class="gpi-content">
-            <b>分红 $\neq$ 白捡额外现金</b>
+            <b>分红 ≠ 白捡额外现金</b>
             <p>分红后股价会进行除息扣减，账户总资产在除息瞬间并不会凭空增加。</p>
           </div>
         </div>
         <div class="g-pitfall-item">
           <span class="gpi-num">8</span>
           <div class="gpi-content">
-            <b>股息率 $\neq$ 未来的固定利息</b>
+            <b>股息率 ≠ 未来的固定利息</b>
             <p>上市公司未来经营变差可能会减少分红甚至不分红，股息率不是保本固收收益。</p>
           </div>
         </div>
         <div class="g-pitfall-item">
           <span class="gpi-num">9</span>
           <div class="gpi-content">
-            <b>ETF $\neq$ 一定没有分红</b>
+            <b>ETF ≠ 一定没有分红</b>
             <p>很多红利 ETF 或高息 ETF 具有明确的定期分红机制，需看具体产品公告。</p>
           </div>
         </div>
         <div class="g-pitfall-item">
           <span class="gpi-num">10</span>
           <div class="gpi-content">
-            <b>历史涨跌 $\neq$ 未来一定会重演</b>
+            <b>历史涨跌 ≠ 未来一定会重演</b>
             <p>历史 K 线和过去表现仅供回顾复盘，市场瞬息万变，切勿把历史当作未来保证。</p>
+          </div>
+        </div>
+        <div class="g-pitfall-item">
+          <span class="gpi-num">11</span>
+          <div class="gpi-content">
+            <b>美股代码不是 6 位数字</b>
+            <p>美股使用英文字母代码（如 NVDA、AAPL），不要按中国股票的习惯输入 6 位数字。</p>
+          </div>
+        </div>
+        <div class="g-pitfall-item">
+          <span class="gpi-num">12</span>
+          <div class="gpi-content">
+            <b>美股价格使用美元 $</b>
+            <p>美股价格单位是美元，不要和人民币 ¥ 混淆。$180 不等于 ¥180。</p>
+          </div>
+        </div>
+        <div class="g-pitfall-item">
+          <span class="gpi-num">13</span>
+          <div class="gpi-content">
+            <b>美股和中国股市交易时间不同</b>
+            <p>美股存在夏令时和冬令时，交易时段与 A 股不同。系统会自动处理，你不需要手动计算。</p>
+          </div>
+        </div>
+        <div class="g-pitfall-item">
+          <span class="gpi-num">14</span>
+          <div class="gpi-content">
+            <b>盯价中美股也是红涨绿跌</b>
+            <p>虽然美国市场通常绿色代表上涨，但盯价为符合中国用户习惯，统一使用红涨绿跌。</p>
+          </div>
+        </div>
+        <div class="g-pitfall-item">
+          <span class="gpi-num">15</span>
+          <div class="gpi-content">
+            <b>美股 ETF 和美股股票不是同一种产品</b>
+            <p>美股 ETF 是一篮子资产的基金份额，股票是单家公司的权益。添加时请选择正确的类型。</p>
           </div>
         </div>
       </div>
     </section>
 
     <!-- 第 7 课：常见问题 FAQ -->
-    <section class="guide-section" id="secFaq" data-guide-sec="7">
+    <section class="guide-section" id="secFaq" data-guide-sec="10">
       <div class="gs-head">
-        <span class="gs-num">08</span>
+        <span class="gs-num">11</span>
         <h3 class="gs-title">❓ 新手常见问题 FAQ</h3>
       </div>
 
       <div class="guide-faq-list">
         <details class="faq-item" open>
           <summary class="faq-q">Q1：为什么股票价格一直在变？</summary>
-          <div class="faq-a">A：因为在交易时段内（09:30~11:30、13:00~15:00），市场上成千上万的买家和卖家在实时挂单撮合，每一笔撮合成交都会形成最新的当前价格。</div>
+          <div class="faq-a">A：因为在交易时段内，市场上成千上万的买家和卖家在实时挂单撮合，每一笔撮合成交都会形成最新的当前价格。中国市场和美股市场都是如此。</div>
         </details>
 
         <details class="faq-item">
@@ -1309,23 +1718,23 @@
         </details>
 
         <details class="faq-item">
-          <summary class="faq-q">Q3：为什么我添加了监控，但在“我的资产”里看不到？</summary>
-          <div class="faq-a">A：【监控】和【资产持仓】是独立的。监控是观察清单，资产是你实际持有的股票。如果你已经买入了这只股票，请切换到底部【资产】Tab 点击“＋添加持仓”录入股数和成本。</div>
+          <summary class="faq-q">Q3：为什么我添加了监控，但在"我的资产"里看不到？</summary>
+          <div class="faq-a">A：【监控】和【资产持仓】是独立的。监控是观察清单，资产是你实际持有的股票。如果你已经买入了这只股票，请切换到底部【资产】Tab 点击"＋添加持仓"录入股数和成本。</div>
         </details>
 
         <details class="faq-item">
           <summary class="faq-q">Q4：为什么有的 ETF 详情页看不到股息率和分红雷达？</summary>
-          <div class="faq-a">A：盯价严格以官方真实公告为准。如果该 ETF 当前没有正式公布生效的收益分配方案，系统会自动纯净隐藏该模块，绝不显示误导性的 0% 或假数据。</div>
+          <div class="faq-a">A：盯价严格以官方真实公告为准。如果该 ETF 当前没有正式公布生效的收益分配方案，系统会自动纯净隐藏该模块，绝不显示误导性的 0% 或假数据。美股目前暂不支持分红雷达。</div>
         </details>
 
         <details class="faq-item">
           <summary class="faq-q">Q5：分红后我的股票价格为什么跌了？</summary>
-          <div class="faq-a">A：这是交易所的“除息”规则。因为公司分派了一部分现金给股东，公司净资产相应减少，因此股价在除息日开盘时会按分红金额做等额下调，属于正常市场调整。</div>
+          <div class="faq-a">A：这是交易所的"除息"规则。因为公司分派了一部分现金给股东，公司净资产相应减少，因此股价在除息日开盘时会按分红金额做等额下调，属于正常市场调整。</div>
         </details>
 
         <details class="faq-item">
           <summary class="faq-q">Q6：为什么提醒记录里显示的价格和我现在看到的不一样？</summary>
-          <div class="faq-a">A：因为提醒记录记录的是<strong>“系统检测到达标那一秒的市场快照”</strong>。当你稍后打开查看时，市场已经经过了新的撮合交易，价格已经发生了变动。</div>
+          <div class="faq-a">A：因为提醒记录记录的是<strong>"系统检测到达标那一秒的市场快照"</strong>。当你稍后打开查看时，市场已经经过了新的撮合交易，价格已经发生了变动。中国股票和美股都是如此。</div>
         </details>
 
         <details class="faq-item">
@@ -1337,6 +1746,95 @@
           <summary class="faq-q">Q8：如何才能获得最好的盯盘体验？</summary>
           <div class="faq-a">A：建议在手机浏览器中打开并添加到手机主屏幕。在交易时段开启系统通知，设置好合理的买入和卖出价格线，安心工作生活即可。</div>
         </details>
+
+        <details class="faq-item">
+          <summary class="faq-q">Q9：美股代码应该怎么输入？</summary>
+          <div class="faq-a">A：先选择市场为 🇺🇸 美股，然后输入英文字母代码即可。例如：股票输入 <code>NVDA</code>、<code>AAPL</code>、<code>TSLA</code>；ETF 输入 <code>QQQ</code>、<code>SPY</code>、<code>VOO</code>。系统会自动将小写字母转为大写。</div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-q">Q10：美股的买入价和卖出价使用什么货币？</summary>
+          <div class="faq-a">A：使用<strong>美元 $</strong>。输入框的提示也会显示"如 180.00 (美元)"。系统会自动在价格前面标注 $ 符号。</div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-q">Q11：美股和中国股票的资产会加在一起吗？</summary>
+          <div class="faq-a">A：不会。如果你同时持有两个市场的股票，资产页面会自动分别显示"🇨🇳 ¥xx"和"🇺🇸 $xx"，不会把不同币种直接混合相加。</div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-q">Q12：美股为什么也是红涨绿跌？</summary>
+          <div class="faq-a">A：虽然美国市场很多软件使用绿色表示上涨，但盯价面向中国用户，统一使用红涨绿跌的颜色规则，让你在切换中美市场时不会产生颜色混淆。</div>
+        </details>
+      </div>
+    </section>
+
+    <!-- 第 11 课：3分钟美股快速开始 -->
+    <section class="guide-section" id="secUsQuick" data-guide-sec="11">
+      <div class="gs-head">
+        <span class="gs-num">12</span>
+        <h3 class="gs-title">🚀 3分钟开始监控一只美股</h3>
+      </div>
+      <p class="gs-lead">跟着以下六步操作，你就可以开始用盯价监控美股了。</p>
+
+      <div class="guide-steps-grid">
+        <div class="g-step-card">
+          <div class="gsc-num">1</div>
+          <div class="gsc-content">
+            <b>选择 🇺🇸 美股</b>
+            <p>点击"添加监控"，在市场一栏选择 🇺🇸 美股</p>
+          </div>
+        </div>
+        <div class="g-step-card">
+          <div class="gsc-num">2</div>
+          <div class="gsc-content">
+            <b>选择类型</b>
+            <p>股票 或 ETF</p>
+          </div>
+        </div>
+        <div class="g-step-card">
+          <div class="gsc-num">3</div>
+          <div class="gsc-content">
+            <b>输入代码</b>
+            <p>例如输入 <code>NVDA</code></p>
+          </div>
+        </div>
+        <div class="g-step-card">
+          <div class="gsc-num">4</div>
+          <div class="gsc-content">
+            <b>设置买入价格</b>
+            <p>你希望跌到多少关注，如 <code>$160</code></p>
+          </div>
+        </div>
+        <div class="g-step-card">
+          <div class="gsc-num">5</div>
+          <div class="gsc-content">
+            <b>设置卖出价格</b>
+            <p>你希望涨到多少止盈，如 <code>$220</code></p>
+          </div>
+        </div>
+        <div class="g-step-card">
+          <div class="gsc-num">6</div>
+          <div class="gsc-content">
+            <b>保存，等盯价提醒</b>
+            <p>保存后系统自动监控，达标即提醒</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="guide-card">
+        <h4>完整示例：NVDA</h4>
+        <p>当前价格：<strong>$180</strong></p>
+        <p>我的买入价：<strong>$160</strong> — 还需要下跌 $20</p>
+        <p>我的卖出价：<strong>$220</strong> — 还需要上涨 $40</p>
+        <p class="text-sub">达到目标以后，系统会记录目标触达时间和触达价格，并发送提醒。</p>
+        <div class="guide-warning-box">
+          ⚠️ 这个例子只是帮助理解功能，不是投资建议。
+        </div>
+      </div>
+
+      <div class="guide-tip-box">
+        💡 <b>就这么简单</b>：选市场 → 输代码 → 设价格 → 保存 → 等提醒。以后你只需要等盯价通知你。
       </div>
     </section>
 
@@ -1376,6 +1874,14 @@
       </div>
 
       <div class="field">
+        <label>市场</label>
+        <div class="seg" id="formMarketSeg">
+          <button type="button" data-market="CN" class="on">🇨🇳 中国</button>
+          <button type="button" data-market="US">🇺🇸 美股</button>
+        </div>
+      </div>
+
+      <div class="field">
         <label>类型</label>
         <div class="seg" id="typeSeg">
           <button type="button" data-type="stock" class="on">股票</button>
@@ -1385,13 +1891,13 @@
 
       <div class="field">
         <label id="codeLabel">股票代码</label>
-        <input id="fCode" inputmode="numeric" maxlength="6" placeholder="6 位数字，如 601137" autocomplete="off">
+        <input id="fCode" inputmode="text" maxlength="10" placeholder="6 位数字，如 601137" autocomplete="off">
         <p class="hint" id="pricePreview"></p>
       </div>
 
       <div class="field">
         <label id="nameLabel">股票名称</label>
-        <input id="fName" maxlength="30" placeholder="如 博威合金" autocomplete="off">
+        <input id="fName" maxlength="40" placeholder="如 博威合金" autocomplete="off">
       </div>
 
       <div class="row2">
@@ -1449,6 +1955,14 @@
       </div>
 
       <div class="field">
+        <label>市场</label>
+        <div class="seg" id="hMarketSeg">
+          <button type="button" data-market="CN" class="on">🇨🇳 中国</button>
+          <button type="button" data-market="US">🇺🇸 美股</button>
+        </div>
+      </div>
+
+      <div class="field">
         <label>类型</label>
         <div class="seg" id="hTypeSeg">
           <button type="button" data-type="stock" class="on">股票</button>
@@ -1458,13 +1972,13 @@
 
       <div class="field">
         <label id="hCodeLabel">股票代码</label>
-        <input id="hCode" inputmode="numeric" maxlength="6" placeholder="6 位数字，如 601137" autocomplete="off">
+        <input id="hCode" inputmode="text" maxlength="10" placeholder="6 位数字，如 601137" autocomplete="off">
         <p class="hint" id="hPricePreview"></p>
       </div>
 
       <div class="field">
         <label id="hNameLabel">股票名称</label>
-        <input id="hName" maxlength="30" placeholder="如 博威合金" autocomplete="off">
+        <input id="hName" maxlength="40" placeholder="如 博威合金" autocomplete="off">
       </div>
 
       <!-- 录入模式切换：按数量 vs 按投入金额 -->
@@ -1482,18 +1996,18 @@
           <input id="hQuantity" inputmode="numeric" placeholder="如 900" autocomplete="off">
         </div>
         <div class="field">
-          <label>持仓成本价 (元)</label>
+          <label id="hCostPriceLabel">持仓成本价 (元)</label>
           <input id="hCostPrice" inputmode="decimal" placeholder="如 19.80" autocomplete="off">
         </div>
       </div>
 
       <div class="row2" id="hModeAmountBox" hidden>
         <div class="field">
-          <label>总投入金额 (元)</label>
+          <label id="hInvestedAmountLabel">总投入金额 (元)</label>
           <input id="hInvestedAmount" inputmode="decimal" placeholder="如 20000" autocomplete="off">
         </div>
         <div class="field">
-          <label>买入成本价 (元)</label>
+          <label id="hAmountCostPriceLabel">买入成本价 (元)</label>
           <input id="hAmountCostPrice" inputmode="decimal" placeholder="如 20.00" autocomplete="off">
         </div>
       </div>
@@ -1683,6 +2197,32 @@
     </div>
   </div>
 
+  <!-- 弹窗 5.5：编辑标的投资备注 (长期笔记) -->
+  <div class="modal" id="watchRemarkModal" hidden>
+    <div class="sheet modal-note-sheet">
+      <div class="sheet-head">
+        <div>
+          <h2>📝 投资备注</h2>
+          <p class="imp-sub" id="watchRemarkTargetName">标的名称 (代码)</p>
+        </div>
+        <button class="icon-btn" data-close-watch-remark aria-label="关闭">✕</button>
+      </div>
+      <p class="note-modal-tip">记录关注原因、设价逻辑或投资思路（仅自己可见，纯文本笔记，不影响监控与交易）</p>
+      <div class="field" style="margin-top: 10px;">
+        <textarea id="watchRemarkInput" class="note-textarea" rows="7" maxlength="1000" placeholder="写下你关注这只股票/ETF的原因、买入卖出设价逻辑、核心关注点或投资心得…（支持自由换行，最多 1000 字）"></textarea>
+        <div class="note-char-counter"><span id="watchRemarkCharCount">0</span> / 1000</div>
+      </div>
+      <p class="form-error" id="watchRemarkError" hidden></p>
+      <div class="sheet-actions note-sheet-actions">
+        <button type="button" class="btn btn-outline text-danger" id="watchRemarkClearBtn">清空</button>
+        <div class="sheet-right-actions">
+          <button type="button" class="btn btn-outline" data-close-watch-remark>取消</button>
+          <button type="button" class="btn btn-primary" id="saveWatchRemarkBtn">保存备注</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 弹窗 6：写投资日记 -->
   <div class="modal" id="noteModal" hidden>
     <div class="sheet">
@@ -1844,7 +2384,7 @@
   <div id="toast" class="toast" hidden></div>
 </div>
 
-<script src="vendor/cloudbase.js?v=20260901w52v1"></script>
-<script src="js/app.js?v=20260901w52v1"></script>
+<script src="vendor/cloudbase.js?v=20260901auditedv1"></script>
+<script src="js/app.js?v=20260901auditedv1"></script>
 </body>
 </html>

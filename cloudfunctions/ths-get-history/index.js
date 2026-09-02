@@ -16,6 +16,7 @@
  */
 const cloud = require('@cloudbase/node-sdk');
 const { thsRequest, toThsCode } = require('./lib/ths-api');
+const { fetchUsHistory, normalizeUsSymbol } = require('./lib/yahoo-api');
 const { assertAccess } = require('./lib/access-guard');
 
 const app = cloud.init({ env: cloud.SYMBOL_CURRENT_ENV });
@@ -74,21 +75,32 @@ async function fetchHistoryItems(type, thsCode, startMs, endMs) {
   return [...all.values()];
 }
 
-const { getTradingPhase, beijingParts } = require('./lib/trading-time');
+const { getTradingPhase, beijingParts, getUsTradingPhase } = require('./lib/trading-time');
 
 /** 取序列：当日缓存命中直接返回，否则拉取并写缓存 */
-async function getSeries(type, code, livePrice = null) {
-  const thsCode = toThsCode(type, code);
-  if (!thsCode) throw new Error('代码无法识别');
+async function getSeries(type, code, livePrice = null, market = 'CN') {
+  const isUs = market === 'US' || (/^[A-Z0-9.\-]{1,10}$/.test(code) && !/^\d{6}$/.test(code));
+  let thsCode = '';
+  let cacheKey = '';
+
+  if (isUs) {
+    thsCode = normalizeUsSymbol(code);
+    cacheKey = `US_${thsCode}`;
+  } else {
+    thsCode = toThsCode(type, code);
+    if (!thsCode) throw new Error('代码无法识别');
+    cacheKey = thsCode;
+  }
+
   const nowMs = Date.now();
   const todayParts = beijingParts(nowMs);
   const todayCompact = todayParts.compactDate;
-  const phase = getTradingPhase({ nowMs });
-  const isClosed = phase === 'closed' || phase === 'weekend' || phase === 'holiday';
+  const phase = isUs ? getUsTradingPhase(nowMs) : getTradingPhase({ nowMs });
+  const isClosed = isUs ? (phase === 'closed' || phase === 'weekend') : (phase === 'closed' || phase === 'weekend' || phase === 'holiday');
 
   let raw = null;
   try {
-    const snap = await db.collection(CACHE_COLL).doc(thsCode).get();
+    const snap = await db.collection(CACHE_COLL).doc(cacheKey).get();
     const doc = Array.isArray(snap.data) ? snap.data[0] : snap.data;
     if (doc && doc.date === todayCompact && Array.isArray(doc.items) && doc.items.length) {
       raw = doc.items;
@@ -97,22 +109,32 @@ async function getSeries(type, code, livePrice = null) {
     // 缓存未命中
   }
 
-    if (!raw) {
-    const fetched = await fetchHistoryItems(type, thsCode, START_MS, nowMs);
-    raw = fetched
-      .filter((it) => typeof it.close_price === 'number')
-      .map((it) => ({
+  if (!raw) {
+    if (isUs) {
+      const usData = await fetchUsHistory(thsCode, '2y', '1d');
+      raw = (usData.items || []).map((it) => ({
         d: it.date_ms,
-        c: round(it.close_price, type === 'etf' ? 3 : 2),
-        h: round(typeof it.high_price === 'number' ? it.high_price : it.close_price, type === 'etf' ? 3 : 2),
-        l: round(typeof it.low_price === 'number' ? it.low_price : it.close_price, type === 'etf' ? 3 : 2),
-      }))
-      .sort((a, b) => a.d - b.d);
+        c: round(it.close_price, 2),
+        h: round(it.high_price, 2),
+        l: round(it.low_price, 2),
+      })).sort((a, b) => a.d - b.d);
+    } else {
+      const fetched = await fetchHistoryItems(type, thsCode, START_MS, nowMs);
+      raw = fetched
+        .filter((it) => typeof it.close_price === 'number')
+        .map((it) => ({
+          d: it.date_ms,
+          c: round(it.close_price, type === 'etf' ? 3 : 2),
+          h: round(typeof it.high_price === 'number' ? it.high_price : it.close_price, type === 'etf' ? 3 : 2),
+          l: round(typeof it.low_price === 'number' ? it.low_price : it.close_price, type === 'etf' ? 3 : 2),
+        }))
+        .sort((a, b) => a.d - b.d);
+    }
 
     if (raw.length) {
       db.collection(CACHE_COLL)
-        .doc(thsCode)
-        .set({ type, thsCode, date: todayCompact, items: raw, updatedAt: new Date() })
+        .doc(cacheKey)
+        .set({ market: isUs ? 'US' : 'CN', type, thsCode, date: todayCompact, items: raw, updatedAt: new Date() })
         .catch(() => {});
     }
   }
@@ -376,12 +398,13 @@ exports.main = async (event = {}) => {
     if (event.mode === 'detail') {
       const type = String(event.type || '');
       const code = String(event.code || '').trim();
+      const market = String(event.market || 'CN').trim().toUpperCase() === 'US' ? 'US' : 'CN';
       if (!['stock', 'etf'].includes(type)) return { ok: false, error: '类型必须为 stock 或 etf' };
       const livePrice = typeof event.currentPrice === 'number' ? event.currentPrice : null;
       const intradayHigh = typeof event.dayHigh === 'number' ? event.dayHigh : null;
       const intradayLow = typeof event.dayLow === 'number' ? event.dayLow : null;
 
-      const { thsCode, items, phase, isClosed } = await getSeries(type, code, livePrice);
+      const { thsCode, items, phase, isClosed } = await getSeries(type, code, livePrice, market);
       const metrics = calcHistoryMetrics(items, {
         type,
         livePrice,
@@ -390,7 +413,7 @@ exports.main = async (event = {}) => {
         isClosed,
       });
 
-      return { ok: true, thsCode, items, ...metrics, phase, isClosed, empty: items.length === 0 };
+      return { ok: true, market, thsCode, items, ...metrics, phase, isClosed, empty: items.length === 0 };
     }
 
     // perf 批量模式：分批并发
@@ -401,7 +424,8 @@ exports.main = async (event = {}) => {
         list.slice(i, i + PERF_CONCURRENCY).map(async (item) => {
           try {
             const type = String(item.type || '');
-            const { thsCode, items } = await getSeries(type, String(item.code || '').trim());
+            const market = String(item.market || 'CN').trim().toUpperCase() === 'US' ? 'US' : 'CN';
+            const { thsCode, items } = await getSeries(type, String(item.code || '').trim(), null, market);
             perf[thsCode] = calcHistoryMetrics(items, {
               type,
               livePrice: typeof item.currentPrice === 'number' ? item.currentPrice : null,

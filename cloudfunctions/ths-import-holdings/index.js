@@ -83,8 +83,19 @@ exports.main = async (event = {}) => {
 
     for (let i = 0; i < rawRows.length; i++) {
       const r = rawRows[i] || {};
-      const type = String(r.type || 'stock').trim();
-      const code = String(r.code || '').trim();
+      const type = String(r.type || 'stock').trim().toLowerCase();
+      let rawCode = String(r.code || '').trim();
+      let market = String(r.market || '').trim().toUpperCase();
+      if (!market) {
+        market = /^\d{6}$/.test(rawCode) ? 'CN' : 'US';
+      }
+
+      let code = rawCode;
+      let thsCode = '';
+      const currency = market === 'US' ? 'USD' : 'CNY';
+      const timezone = market === 'US' ? 'America/New_York' : 'Asia/Shanghai';
+      const dataSource = market === 'US' ? 'YAHOO' : 'THS';
+
       const name = String(r.name || '').trim();
       const qty = Number(r.quantity);
       const costP = Number(r.costPrice);
@@ -93,15 +104,26 @@ exports.main = async (event = {}) => {
         failed.push({ code, reason: '类型必须为 stock 或 etf' });
         continue;
       }
-      if (!/^\d{6}$/.test(code)) {
-        failed.push({ code, reason: '代码必须为 6 位数字' });
-        continue;
+
+      if (market === 'US') {
+        code = code.toUpperCase().replace(/\//g, '-');
+        if (!/^[A-Z0-9.\-]{1,10}$/.test(code)) {
+          failed.push({ code, reason: '美股代码格式不正确（如 AAPL、NVDA、QQQ、SPY）' });
+          continue;
+        }
+        thsCode = code;
+      } else {
+        if (!/^\d{6}$/.test(code)) {
+          failed.push({ code, reason: '代码必须为 6 位数字' });
+          continue;
+        }
+        thsCode = toThsCode(type, code);
+        if (!thsCode) {
+          failed.push({ code, reason: '代码号段无法识别' });
+          continue;
+        }
       }
-      const thsCode = toThsCode(type, code);
-      if (!thsCode) {
-        failed.push({ code, reason: '代码号段无法识别' });
-        continue;
-      }
+
       if (!Number.isFinite(qty) || qty <= 0) {
         failed.push({ code, reason: '持仓数量必须为正整数' });
         continue;
@@ -116,6 +138,11 @@ exports.main = async (event = {}) => {
       const costAmount = round(finalQty * finalCostP, 2);
 
       validated.push({
+        market,
+        securityType: type === 'etf' ? 'ETF' : 'STOCK',
+        currency,
+        timezone,
+        dataSource,
         type,
         code,
         thsCode,
@@ -128,7 +155,9 @@ exports.main = async (event = {}) => {
         targetQuantity: Number.isFinite(Number(r.targetQuantity)) ? Math.floor(Number(r.targetQuantity)) : null,
         plannedAmount: Number.isFinite(Number(r.plannedAmount)) ? round(Number(r.plannedAmount), 2) : null,
         note: r.note ? String(r.note).trim() : '',
-        watchId: watchMap.has(code) ? watchMap.get(code)._id : null,
+        watchId: (watchMap.get(code) && watchMap.get(code)._id) || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
     }
 

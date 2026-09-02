@@ -55,16 +55,41 @@ exports.main = async (event = {}) => {
       if (name !== doc.name) patch.name = name;
     }
 
+    const targetMarket = event.market !== undefined
+      ? (String(event.market).trim().toUpperCase() === 'US' ? 'US' : 'CN')
+      : (doc.market || 'CN');
+
+    if (event.market !== undefined && targetMarket !== doc.market) {
+      patch.market = targetMarket;
+      patch.currency = targetMarket === 'US' ? 'USD' : 'CNY';
+      patch.timezone = targetMarket === 'US' ? 'America/New_York' : 'Asia/Shanghai';
+      patch.dataSource = targetMarket === 'US' ? 'YAHOO' : 'THS';
+    }
+
     // 代码允许修改，类型保持不变
     let codeChanged = false;
     if (event.code !== undefined) {
-      const code = String(event.code || '').trim();
-      if (!/^\d{6}$/.test(code)) return { ok: false, error: '代码必须为 6 位数字' };
-      const thsCode = toThsCode(doc.type, code);
-      if (!thsCode) return { ok: false, error: '无法识别该代码所属市场' };
-      if (code !== doc.code) {
-        const dup = await db.collection(WATCH_COLL).where({ code }).count();
-        if (dup.total > 0) return { ok: false, error: `代码 ${code} 已被其他监控使用` };
+      let code = String(event.code || '').trim();
+      let thsCode = '';
+
+      if (targetMarket === 'US') {
+        code = code.toUpperCase().replace(/\//g, '-');
+        if (!/^[A-Z0-9.\-]{1,10}$/.test(code)) {
+          return { ok: false, error: '美股代码格式不正确（如 AAPL、NVDA、QQQ、SPY）' };
+        }
+        thsCode = code;
+      } else {
+        if (!/^\d{6}$/.test(code)) return { ok: false, error: '中国股票/ETF 代码必须为 6 位数字' };
+        thsCode = toThsCode(doc.type, code);
+        if (!thsCode) return { ok: false, error: '无法识别该代码所属市场' };
+      }
+
+      if (code !== doc.code || targetMarket !== doc.market) {
+        const dup = await db.collection(WATCH_COLL).where({ code, market: targetMarket }).get();
+        const otherDocs = (dup.data || []).filter((d) => String(d._id) !== id);
+        if (otherDocs.length > 0) {
+          return { ok: false, error: `代码 ${code}（${targetMarket === 'US' ? '美股' : '中国'}）已被其他监控使用` };
+        }
         patch.code = code;
         patch.thsCode = thsCode;
         codeChanged = true;
@@ -117,6 +142,14 @@ exports.main = async (event = {}) => {
       if (enabled !== doc.enabled) patch.enabled = enabled;
     }
 
+    if (event.note !== undefined) {
+      const note = String(event.note || '').trim().slice(0, 1000);
+      if (note !== (doc.note || '')) {
+        patch.note = note;
+        patch.noteUpdatedAt = note ? new Date() : null;
+      }
+    }
+
     // 代码或价格线变化 = 监控目标变化：重置评估基线，并撤销此前达成的「已完成」标记与触发锁
     if (codeChanged || priceChanged) {
       patch.previousPrice = null;
@@ -132,6 +165,8 @@ exports.main = async (event = {}) => {
     const res = await db.collection(WATCH_COLL).doc(id).update(patch);
     const updatedCount = Number(res && (res.updated != null ? res.updated : res.stats ? res.stats.updated : 0));
     if (updatedCount === 0) return { ok: false, error: '更新未生效，请重试' };
+    // 异步触发一次即时价格巡检与通知判定
+    app.callFunction({ name: 'ths-check-market', data: { force: true } }).catch(() => {});
     return { ok: true, id };
   } catch (e) {
     return { ok: false, error: `更新失败：${e.message}` };

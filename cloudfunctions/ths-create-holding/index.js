@@ -38,15 +38,32 @@ exports.main = async (event = {}) => {
 
   try {
     await ensureCollections().catch(() => {});
-    const type = String(event.type || 'stock').trim();
-
+    const type = String(event.type || 'stock').trim().toLowerCase();
     if (!['stock', 'etf'].includes(type)) return { ok: false, error: '类型必须为 stock 或 etf' };
 
-    const code = String(event.code || '').trim();
-    if (!/^\d{6}$/.test(code)) return { ok: false, error: '代码必须为 6 位数字' };
+    let rawCode = String(event.code || '').trim();
+    let market = String(event.market || '').trim().toUpperCase();
+    if (!market) {
+      market = /^\d{6}$/.test(rawCode) ? 'CN' : 'US';
+    }
 
-    const thsCode = toThsCode(type, code);
-    if (!thsCode) return { ok: false, error: '无法识别代码对应的市场后缀' };
+    let code = rawCode;
+    let thsCode = '';
+    const currency = market === 'US' ? 'USD' : 'CNY';
+    const timezone = market === 'US' ? 'America/New_York' : 'Asia/Shanghai';
+    const dataSource = market === 'US' ? 'YAHOO' : 'THS';
+
+    if (market === 'US') {
+      code = code.toUpperCase().replace(/\//g, '-');
+      if (!/^[A-Z0-9.\-]{1,10}$/.test(code)) {
+        return { ok: false, error: '美股代码格式不正确（如 AAPL、NVDA、QQQ、SPY）' };
+      }
+      thsCode = code;
+    } else {
+      if (!/^\d{6}$/.test(code)) return { ok: false, error: '中国股票/ETF 代码必须为 6 位数字' };
+      thsCode = toThsCode(type, code);
+      if (!thsCode) return { ok: false, error: '无法识别代码对应的市场后缀' };
+    }
 
     const costPrice = Number(event.costPrice);
     if (!Number.isFinite(costPrice) || costPrice <= 0) {
@@ -76,13 +93,14 @@ exports.main = async (event = {}) => {
     // 自动获取名称（若未传入）
     let name = String(event.name || '').trim();
     if (!name) {
-      name = (await searchTickerName(code).catch(() => null)) || code;
+      if (market === 'US') name = code;
+      else name = (await searchTickerName(code).catch(() => null)) || code;
     }
 
     // 自动查找是否已有相同监控
     let watchId = null;
     try {
-      const wSnap = await db.collection(WATCH_COLL).where({ code }).limit(1).get();
+      const wSnap = await db.collection(WATCH_COLL).where({ code, market }).limit(1).get();
       if (wSnap.data && wSnap.data[0]) {
         watchId = wSnap.data[0]._id;
       }
@@ -90,6 +108,11 @@ exports.main = async (event = {}) => {
 
     const now = new Date();
     const doc = {
+      market,
+      securityType: type === 'etf' ? 'ETF' : 'STOCK',
+      currency,
+      timezone,
+      dataSource,
       type,
       code,
       thsCode,
