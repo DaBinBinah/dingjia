@@ -150,9 +150,25 @@ async function fetchQuotes(type, thsCodes) {
   }
 
   if (type === 'etf') {
-    for (const code of thsCodes) {
+    for (let i = 0; i < thsCodes.length; i++) {
+      const code = thsCodes[i];
+      if (i > 0) {
+        // 请求间隔 150ms，平滑流量，防止触发同花顺 API 并发限流
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      }
       try {
-        const data = await thsRequest('/api/fund/market/snapshot', { thscode: code });
+        let data;
+        try {
+          data = await thsRequest('/api/fund/market/snapshot', { thscode: code });
+        } catch (err) {
+          if (/limit exceeded|exceeded/i.test(String(err && err.message))) {
+            // 触发频次限制时退避 350ms 重试一次
+            await new Promise((resolve) => setTimeout(resolve, 350));
+            data = await thsRequest('/api/fund/market/snapshot', { thscode: code });
+          } else {
+            throw err;
+          }
+        }
         const item = (data && data.item && data.item[0]) || null;
         const srcTs = (data && data.timestamp) || (item && (item.timestamp || item.time)) || null;
         const q = normalizeQuote(item, srcTs);
