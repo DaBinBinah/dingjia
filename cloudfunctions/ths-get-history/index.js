@@ -26,7 +26,8 @@ const CACHE_COLL = 'ths_history_cache';
 const START_MS = Date.UTC(2023, 11, 15);
 const MAX_POINTS = 8000;
 const PERF_CONCURRENCY = 5;
-const YEARS = [2025, 2026];
+const currentFullYear = new Date().getFullYear();
+const YEARS = [currentFullYear - 1, currentFullYear];
 
 function beijingYear(ms) {
   return new Date(ms + 8 * 3600 * 1000).getUTCFullYear();
@@ -350,12 +351,12 @@ function calcHistoryMetrics(items, opts = {}) {
     }
   }
 
-  // 2. 2026 年内最高价与最低价
-  const items2026 = items.filter((it) => beijingYear(it.d) === 2026);
-  if (items2026.length) {
-    let high = items2026[0].h || items2026[0].c;
-    let low = items2026[0].l || items2026[0].c;
-    for (const it of items2026) {
+  // 2. 当年年内最高价与最低价 (YTD High / Low)
+  const itemsCurrentYear = items.filter((it) => beijingYear(it.d) === currentFullYear);
+  if (itemsCurrentYear.length) {
+    let high = itemsCurrentYear[0].h || itemsCurrentYear[0].c;
+    let low = itemsCurrentYear[0].l || itemsCurrentYear[0].c;
+    for (const it of itemsCurrentYear) {
       const h = it.h || it.c;
       const l = it.l || it.c;
       if (h > high) high = h;

@@ -49,8 +49,8 @@
 ## 数据来源
 | 市场 | 数据源 | 说明 |
 |---|---|---|
-| 🇨🇳 中国 A 股 / ETF | 同花顺金融数据 | 行情快照（非实时逐笔） |
-| 🇺🇸 美股 / 美股 ETF | Yahoo Finance | 行情快照 |
+| 🇨🇳 中国 A 股 / ETF | 同花顺金融数据开放平台 | 行情快照（非逐笔高频） |
+| 🇺🇸 美股 / 美股 ETF | 腾讯财经美股通道（Yahoo Finance 指数/备用） | 官方快照（提取美东真实交易时刻） |
 
 ## 🔔 价格监控与推送机制
 
@@ -127,20 +127,26 @@
     └── ths-get-ai-summary/          # AI 大盘收评与持仓归因
 ```
 
-## 本地运行
-前端是纯原生 HTML5 + CSS3 + ES6+ JavaScript 的 SPA，零构建依赖。无需 npm install 或 build。
+## 本地运行与部署
+前端是纯原生 HTML5 + CSS3 + ES6+ JavaScript 的 SPA，零构建依赖，无需 npm install 或 webpack 打包。
 
-但需要配置 CloudBase 环境：
-1. 复制 `cloudbaserc.example.json` 为 `cloudbaserc.json` 并填写你的环境 ID 和密钥
+配置与部署步骤：
+1. 复制 `cloudbaserc.example.json` 为 `cloudbaserc.json` 并填写你的环境 ID 和密钥（仅供本地部署，已加入 .gitignore）
 2. 复制 `.env.example` 为 `.env` 并填写配置
-3. 修改 `web/js/app.js` 中的 `ENV_ID` 和 `ACCESS_KEY` 为你的 CloudBase 配置
+3. 复制 `web/config.example.js` 为 `web/config.js` 并填入你的 CloudBase `envId` 和 `accessKey`
 4. 部署云函数：`tcb fn deploy`
-5. 部署前端：`tcb hosting deploy ./web -e <你的环境ID>`
+5. 安全部署前端静态页面（必须部署到独占子目录 `ths`）：
+   ```bash
+   bash scripts/deploy-hosting.sh
+   # 或手动指定环境部署到 /ths/ 路径：
+   # npx tcb hosting deploy ./web ths -e <你的环境ID>
+   ```
 
 ## 环境变量
 | 变量名 | 必填 | 说明 |
 |---|---|---|
 | THS_API_KEY | 是（监控中国市场时） | 同花顺开放平台 API Key |
+| THS_APP_URL | 否 | 监控 Web 应用线上访问地址（微信推送卡片跳转目标，默认自动匹配 /ths/） |
 | THS_WECHAT_MP_APPID | 否 | 微信公众号 AppID |
 | THS_WECHAT_MP_SECRET | 否 | 微信公众号 AppSecret |
 | THS_WECHAT_MP_TEMPLATE_ID | 否 | 微信模板消息 ID |

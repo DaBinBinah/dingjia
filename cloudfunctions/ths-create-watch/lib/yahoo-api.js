@@ -89,6 +89,19 @@ async function fetchTencentUsQuotes(symbols = []) {
         continue;
       }
 
+      // parts[30] 为腾讯美股接口返回的交易时刻（美东时间），如 "2026-09-02 16:00:01"
+      let realMarketTime = null;
+      const rawTimeStr = parts[30] ? parts[30].trim() : '';
+      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(rawTimeStr)) {
+        try {
+          const month = parseInt(rawTimeStr.slice(5, 7), 10);
+          const isDst = month >= 4 && month <= 10;
+          const tzOffset = isDst ? '-04:00' : '-05:00';
+          const d = new Date(rawTimeStr.replace(' ', 'T') + tzOffset);
+          if (!isNaN(d.getTime())) realMarketTime = d;
+        } catch (_) {}
+      }
+
       quotes[symbol] = {
         name,
         price,
@@ -104,7 +117,8 @@ async function fetchTencentUsQuotes(symbols = []) {
         fiftyTwoWeekLow,
         currency: 'USD',
         timezone: 'America/New_York',
-        marketTime: new Date(),
+        marketTime: realMarketTime,
+        marketDataTime: realMarketTime,
         marketState: 'REGULAR',
         dataSource: 'TENCENT_US',
       };
@@ -209,6 +223,7 @@ const US_CORE_INDICES = [
   {
     symbol: '^NQINTEL',
     tencentCode: null,
+    fallbackSymbol: 'ROBT', // 跟踪 Nasdaq CTA Artificial Intelligence Index 的基准公募
     name: 'Nasdaq CTA Artificial Intelligence Index',
     shortName: 'AI人工智能',
     subText: 'NQINTEL',
@@ -218,45 +233,14 @@ const US_CORE_INDICES = [
   },
 ];
 
-async function fetchSingleYahooChart(symbol) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`;
-  try {
-    const raw = await fetchText(url, { 'Accept': 'application/json' });
-    const json = JSON.parse(raw);
-    const meta = json?.chart?.result?.[0]?.meta;
-    if (!meta) return null;
-    const price = typeof meta.regularMarketPrice === 'number' ? meta.regularMarketPrice : null;
-    const prev = typeof meta.chartPreviousClose === 'number'
-      ? meta.chartPreviousClose
-      : typeof meta.previousClose === 'number'
-        ? meta.previousClose
-        : null;
-    if (price === null) return null;
-    let changePercent = 0;
-    let changeAmount = 0;
-    if (prev && prev > 0) {
-      changeAmount = Math.round((price - prev) * 100) / 100;
-      changePercent = Math.round(((price - prev) / prev) * 10000) / 100;
-    }
-    return {
-      price,
-      prevPrice: prev,
-      change: changeAmount,
-      changePercent,
-      openPrice: meta.regularMarketOpen || null,
-      dayHigh: meta.regularMarketDayHigh || null,
-      dayLow: meta.regularMarketDayLow || null,
-      marketTime: meta.regularMarketTime ? new Date(meta.regularMarketTime * 1000) : new Date(),
-    };
-  } catch (_) {
-    return null;
-  }
-}
-
 async function fetchUsIndices() {
   const result = [];
-  // 1. 尝试从腾讯接口拉取前三大指数
-  const tencentSymbols = US_CORE_INDICES.filter((i) => i.tencentCode).map((i) => i.tencentCode);
+  // 1. 尝试从腾讯接口批量拉取前三大指数 + 备用 AI 标的
+  const tencentSymbols = [
+    ...US_CORE_INDICES.filter((i) => i.tencentCode).map((i) => i.tencentCode),
+    'ROBT',
+    'THNQ',
+  ];
   const { quotes: tQuotes } = await fetchTencentUsQuotes(tencentSymbols);
 
   for (const item of US_CORE_INDICES) {
@@ -264,9 +248,24 @@ async function fetchUsIndices() {
     if (item.tencentCode && tQuotes[item.tencentCode]) {
       q = tQuotes[item.tencentCode];
     }
-    // 2. 如果腾讯未获取到或为 NQINTEL，则走 Yahoo Chart API
+    // 2. 如果腾讯未获取到或为 NQINTEL，则优先走 Yahoo Chart API
     if (!q || q.price == null) {
       q = await fetchSingleYahooChart(item.symbol);
+    }
+    // 3. 如果 Yahoo 被限流，使用追踪该指数的 AI 标的行情作为数据兜底
+    if (!q || q.price == null) {
+      if (item.fallbackSymbol && tQuotes[item.fallbackSymbol]) {
+        const fb = tQuotes[item.fallbackSymbol];
+        q = {
+          price: fb.price,
+          prevPrice: fb.prevPrice,
+          change: fb.changeAmount,
+          changePercent: fb.changePercent,
+          openPrice: fb.openPrice,
+          dayHigh: fb.dayHigh,
+          dayLow: fb.dayLow,
+        };
+      }
     }
 
     if (q && typeof q.price === 'number') {
@@ -316,6 +315,64 @@ async function fetchUsIndices() {
   }
 
   return result;
+}
+
+function fetchJsonDirect(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+      },
+      timeout: TIMEOUT_MS,
+    }, (res) => {
+      let data = '';
+      res.on('data', (c) => (data += c));
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
+        } else {
+          reject(new Error(`HTTP ${res.statusCode}: ${data.slice(0, 100)}`));
+        }
+      });
+    }).on('error', reject);
+  });
+}
+
+async function fetchSingleYahooChart(symbol) {
+  const hosts = ['https://query2.finance.yahoo.com', 'https://query1.finance.yahoo.com'];
+  for (const host of hosts) {
+    const url = `${host}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`;
+    try {
+      const json = await fetchJsonDirect(url);
+      const meta = json?.chart?.result?.[0]?.meta;
+      if (!meta) continue;
+      const price = typeof meta.regularMarketPrice === 'number' ? meta.regularMarketPrice : null;
+      const prev = typeof meta.chartPreviousClose === 'number'
+        ? meta.chartPreviousClose
+        : typeof meta.previousClose === 'number'
+          ? meta.previousClose
+          : null;
+      if (price === null) continue;
+      let changePercent = 0;
+      let changeAmount = 0;
+      if (prev && prev > 0) {
+        changeAmount = Math.round((price - prev) * 100) / 100;
+        changePercent = Math.round(((price - prev) / prev) * 10000) / 100;
+      }
+      return {
+        price,
+        prevPrice: prev,
+        change: changeAmount,
+        changePercent,
+        openPrice: meta.regularMarketOpen || null,
+        dayHigh: meta.regularMarketDayHigh || null,
+        dayLow: meta.regularMarketDayLow || null,
+        marketTime: meta.regularMarketTime ? new Date(meta.regularMarketTime * 1000) : new Date(),
+      };
+    } catch (_) {}
+  }
+  return null;
 }
 
 module.exports = {

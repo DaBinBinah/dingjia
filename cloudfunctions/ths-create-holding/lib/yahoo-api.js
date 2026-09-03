@@ -89,6 +89,19 @@ async function fetchTencentUsQuotes(symbols = []) {
         continue;
       }
 
+      // parts[30] 为腾讯美股接口返回的交易时刻（美东时间），如 "2026-09-02 16:00:01"
+      let realMarketTime = null;
+      const rawTimeStr = parts[30] ? parts[30].trim() : '';
+      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(rawTimeStr)) {
+        try {
+          const month = parseInt(rawTimeStr.slice(5, 7), 10);
+          const isDst = month >= 4 && month <= 10;
+          const tzOffset = isDst ? '-04:00' : '-05:00';
+          const d = new Date(rawTimeStr.replace(' ', 'T') + tzOffset);
+          if (!isNaN(d.getTime())) realMarketTime = d;
+        } catch (_) {}
+      }
+
       quotes[symbol] = {
         name,
         price,
@@ -104,7 +117,8 @@ async function fetchTencentUsQuotes(symbols = []) {
         fiftyTwoWeekLow,
         currency: 'USD',
         timezone: 'America/New_York',
-        marketTime: new Date(),
+        marketTime: realMarketTime,
+        marketDataTime: realMarketTime,
         marketState: 'REGULAR',
         dataSource: 'TENCENT_US',
       };

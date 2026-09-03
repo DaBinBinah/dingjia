@@ -31,6 +31,7 @@ const { assertAccess } = require('./lib/access-guard');
 
 const app = cloud.init({ env: cloud.SYMBOL_CURRENT_ENV });
 const db = app.database();
+const _ = db.command;
 
 const WATCH_COLL = 'ths_watchlist';
 const ALERTS_COLL = 'ths_alerts';
@@ -172,17 +173,20 @@ exports.main = async (event = {}) => {
     const triggers = []; // 本次要触发的价格提醒类型
     const rearm = {}; // 需要复位（重新武装）的触发标记
 
-    // 跨日重置与当日提醒状态判定
-    const lastDate = w.lastFetchTime ? beijingParts(new Date(w.lastFetchTime).getTime()).compactDate : null;
-    const isNewTradingDay = lastDate !== today;
+    // 跨日重置与触发状态判定（P1-2：美股严格按美东时区 America/New_York，A股按北京时区 Asia/Shanghai）
+    const isUs = w.market === 'US';
+    const currentMarketParts = isUs ? usNewYorkParts(nowMs) : beijingParts(nowMs);
+    const marketToday = currentMarketParts.compactDate;
 
-    const buyAlertDate = w.lastBuyAlertTime ? beijingParts(new Date(w.lastBuyAlertTime).getTime()).compactDate : null;
-    const sellAlertDate = w.lastSellAlertTime ? beijingParts(new Date(w.lastSellAlertTime).getTime()).compactDate : null;
-    const buySentToday = buyAlertDate === today;
-    const sellSentToday = sellAlertDate === today;
+    const lastFetchMs = w.lastFetchTime ? new Date(w.lastFetchTime).getTime() : null;
+    const lastMarketDate = lastFetchMs ? (isUs ? usNewYorkParts(lastFetchMs).compactDate : beijingParts(lastFetchMs).compactDate) : null;
+    const isNewTradingDay = lastMarketDate !== marketToday;
 
-    const buyTriggerLocked = event.rearmAll ? false : (buySentToday || (Boolean(w.buyTriggered) && !isNewTradingDay && Boolean(w.lastBuyAlertTime)));
-    const sellTriggerLocked = event.rearmAll ? false : (sellSentToday || (Boolean(w.sellTriggered) && !isNewTradingDay && Boolean(w.lastSellAlertTime)));
+    // P1-1 修复：废除 buySentToday / sellSentToday 当日永久锁死机制
+    // 逻辑：当前已触发且尚未跨日时保持防抖锁定；离开目标区间自动 rearm（buyTriggered 变为 false）；
+    // 重新武装后，若盘中再次满足条件，允许同一交易日内产生第 2 次触达事件和新提醒
+    const buyTriggerLocked = event.rearmAll ? false : (Boolean(w.buyTriggered) && !isNewTradingDay);
+    const sellTriggerLocked = event.rearmAll ? false : (Boolean(w.sellTriggered) && !isNewTradingDay);
 
     if (prev === null) {
       // 首次观测：若已越过阈值且未锁定，产生首次触达快照与提醒
@@ -227,12 +231,18 @@ exports.main = async (event = {}) => {
         }
         let claimed = false;
         try {
-          const res = await db.collection(WATCH_COLL).doc(w._id).update(upd);
+          const casFilter = { _id: w._id };
+          for (const t of triggers) {
+            casFilter[`${t}Triggered`] = _.neq(true);
+          }
+          const res = await db.collection(WATCH_COLL).where(casFilter).update(upd);
           const updatedCount = Number(
             res && (res.updated != null ? res.updated : res.stats && res.stats.updated != null ? res.stats.updated : 0)
           );
           claimed = updatedCount === 1;
-        } catch (_) {}
+        } catch (_) {
+          claimed = false;
+        }
         if (claimed) {
           for (const t of triggers) {
             const targetP = t === 'buy' ? w.buyPrice : w.sellPrice;
@@ -260,11 +270,13 @@ exports.main = async (event = {}) => {
               turnover: quote.turnover,
               triggeredAt: now,
               detectedAt: now,
-              marketDataTime: quote.marketDataTime || now,
+              marketDataTime: (quote.marketDataTime instanceof Date && !isNaN(quote.marketDataTime.getTime()))
+                ? quote.marketDataTime
+                : null,
               triggerCycleId: cycleId,
               status: 'ACTIVE',
               notificationStatus: 'PENDING',
-              source: 'THS_REST_SNAPSHOT',
+              source: isUs ? 'TENCENT_US_SNAPSHOT' : 'THS_REST_SNAPSHOT',
               createdAt: now,
             };
 
@@ -298,7 +310,8 @@ exports.main = async (event = {}) => {
           }
           result.results.push({ code: w.code, ok: true, triggered: triggers });
         } else {
-          result.results.push({ code: w.code, ok: true, note: '并发扫描已处理' });
+          await db.collection(WATCH_COLL).doc(w._id).update(baseUpdate).catch(() => {});
+          result.results.push({ code: w.code, ok: true, note: '并发扫描已由其他任务处理' });
         }
       } else {
         // 如果离开了目标区域，更新 lastTouch 状态为 RETURNED

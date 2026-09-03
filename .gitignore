@@ -24,6 +24,8 @@ package-lock.json
 # CloudBase 本地部署配置（含密钥，仅保留 example 模板）
 # ========================
 cloudbaserc.json
+web/config.js
+!web/config.example.js
 
 # ========================
 # 日志

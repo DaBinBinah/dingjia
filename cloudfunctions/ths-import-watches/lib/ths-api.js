@@ -1,5 +1,9 @@
 /**
  * 同花顺金融数据服务 REST 客户端
+ * 契约来源：https://fuyao.aicubes.cn 官方文档（2026-08 逐字段核对）
+ * - 认证：请求头 X-api-key（来自环境变量 THS_API_KEY，绝不进入前端）
+ * - 成功条件：HTTP 200 且信封 code === 0；data 在业务错误时为 null
+ * - 股票快照支持逗号批量；ETF 快照仅接受单个 thscode
  */
 const DEFAULT_BASE_URL = 'https://fuyao.aicubes.cn';
 const TIMEOUT_MS = 8000;
@@ -47,6 +51,7 @@ async function thsRequest(path, params = {}) {
   return body.data;
 }
 
+/** 6 位数字代码 → 带市场后缀的 thscode；无法识别返回 null */
 function toThsCode(type, code) {
   const c = String(code || '').trim();
   if (!/^\d{6}$/.test(c)) return null;
@@ -64,7 +69,7 @@ function toThsCode(type, code) {
   return null;
 }
 
-function normalizeQuote(raw) {
+function normalizeQuote(raw, sourceTimestamp) {
   if (!raw || typeof raw.last_price !== 'number') return null;
   const price = raw.last_price;
   let changePercent = null;
@@ -73,13 +78,31 @@ function normalizeQuote(raw) {
   } else if (typeof raw.prev_price === 'number' && raw.prev_price > 0) {
     changePercent = ((price - raw.prev_price) / raw.prev_price) * 100;
   }
+
+  let marketDataTime = null;
+  const rawTs = sourceTimestamp || raw.timestamp || raw.time;
+  if (rawTs) {
+    const d = new Date(rawTs);
+    if (!isNaN(d.getTime())) marketDataTime = d;
+  }
+
   return {
     price,
     changePercent,
     prevPrice: typeof raw.prev_price === 'number' ? raw.prev_price : null,
+    openPrice: typeof raw.open_price === 'number' ? raw.open_price : null,
+    dayHigh: typeof raw.high_price === 'number' ? raw.high_price : null,
+    dayLow: typeof raw.low_price === 'number' ? raw.low_price : null,
+    volume: typeof raw.volume === 'number' ? raw.volume : null,
+    turnover: typeof raw.turnover === 'number' ? raw.turnover : null,
+    marketDataTime,
   };
 }
 
+/**
+ * 按类型获取行情快照。
+ * 股票走批量端点（每批最多 100 只）；ETF 官方端点仅支持单个，逐只请求，串行以避免限流。
+ */
 async function fetchQuotes(type, thsCodes) {
   const quotes = {};
   const failures = {};
@@ -91,8 +114,9 @@ async function fetchQuotes(type, thsCodes) {
       try {
         const data = await thsRequest('/api/a-share/prices/snapshot', { thscodes: batch.join(',') });
         const got = new Set();
+        const srcTs = data && data.timestamp;
         for (const item of (data && data.item) || []) {
-          const q = normalizeQuote(item);
+          const q = normalizeQuote(item, srcTs);
           if (q) {
             quotes[item.thscode] = q;
             got.add(item.thscode);
@@ -108,7 +132,7 @@ async function fetchQuotes(type, thsCodes) {
                 try {
                   const data = await thsRequest('/api/a-share/prices/snapshot', { thscodes: code });
                   const item = (data && data.item && data.item[0]) || null;
-                  const q = normalizeQuote(item);
+                  const q = normalizeQuote(item, data && data.timestamp);
                   if (q) quotes[code] = q;
                   else failures[code] = '行情为空或标的不存在';
                 } catch (e2) {
@@ -130,7 +154,8 @@ async function fetchQuotes(type, thsCodes) {
       try {
         const data = await thsRequest('/api/fund/market/snapshot', { thscode: code });
         const item = (data && data.item && data.item[0]) || null;
-        const q = normalizeQuote(item);
+        const srcTs = (data && data.timestamp) || (item && (item.timestamp || item.time)) || null;
+        const q = normalizeQuote(item, srcTs);
         if (q) quotes[code] = q;
         else failures[code] = '行情为空';
       } catch (e) {
@@ -144,6 +169,7 @@ async function fetchQuotes(type, thsCodes) {
   return { quotes, failures };
 }
 
+/** 按代码搜索标的名称（快照不含名称，此端点用于补全）；失败返回 null，不影响主流程 */
 async function searchTickerName(q) {
   try {
     const data = await thsRequest('/api/meta/tickers/search', { q, limit: 1 });
@@ -154,6 +180,10 @@ async function searchTickerName(q) {
   }
 }
 
+/**
+ * 查询 A 股近一年交易日序列
+ * @returns {Promise<Set<string>|null>} 'YYYYMMDD' 集合；接口失败返回 null（调用方退化为仅星期判断）
+ */
 async function fetchTradingDays() {
   try {
     const data = await thsRequest('/api/a-share/calendar/trading-days');
@@ -165,6 +195,11 @@ async function fetchTradingDays() {
   }
 }
 
+/**
+ * 查询分红 / 公司行动记录
+ * 股票：/api/a-share/corporate-actions/adjustment-factors
+ * ETF：/api/fund/corporate-actions/dividends
+ */
 async function fetchCorporateActions(type, thsCode) {
   if (type === 'stock') {
     const data = await thsRequest('/api/a-share/corporate-actions/adjustment-factors', { thscode: thsCode });
@@ -185,6 +220,7 @@ module.exports = {
   thsRequest,
   toThsCode,
   fetchQuotes,
+  normalizeQuote,
   searchTickerName,
   fetchTradingDays,
   fetchCorporateActions,

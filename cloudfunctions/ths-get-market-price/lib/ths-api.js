@@ -78,6 +78,14 @@ function normalizeQuote(raw, sourceTimestamp) {
   } else if (typeof raw.prev_price === 'number' && raw.prev_price > 0) {
     changePercent = ((price - raw.prev_price) / raw.prev_price) * 100;
   }
+
+  let marketDataTime = null;
+  const rawTs = sourceTimestamp || raw.timestamp || raw.time;
+  if (rawTs) {
+    const d = new Date(rawTs);
+    if (!isNaN(d.getTime())) marketDataTime = d;
+  }
+
   return {
     price,
     changePercent,
@@ -87,7 +95,7 @@ function normalizeQuote(raw, sourceTimestamp) {
     dayLow: typeof raw.low_price === 'number' ? raw.low_price : null,
     volume: typeof raw.volume === 'number' ? raw.volume : null,
     turnover: typeof raw.turnover === 'number' ? raw.turnover : null,
-    marketDataTime: sourceTimestamp ? new Date(sourceTimestamp) : null,
+    marketDataTime,
   };
 }
 
@@ -146,7 +154,8 @@ async function fetchQuotes(type, thsCodes) {
       try {
         const data = await thsRequest('/api/fund/market/snapshot', { thscode: code });
         const item = (data && data.item && data.item[0]) || null;
-        const q = normalizeQuote(item);
+        const srcTs = (data && data.timestamp) || (item && (item.timestamp || item.time)) || null;
+        const q = normalizeQuote(item, srcTs);
         if (q) quotes[code] = q;
         else failures[code] = '行情为空';
       } catch (e) {
@@ -211,6 +220,7 @@ module.exports = {
   thsRequest,
   toThsCode,
   fetchQuotes,
+  normalizeQuote,
   searchTickerName,
   fetchTradingDays,
   fetchCorporateActions,

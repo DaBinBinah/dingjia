@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f5f5f7">
 <title>盯价 - 你定价格，我来盯。</title>
-<link rel="stylesheet" href="css/style.css?v=20260901auditedv1">
+<link rel="stylesheet" href="css/style.css?v=20260903v1">
 </head>
 <body>
 
@@ -160,6 +160,11 @@
           <span class="hp-lab">浮动盈亏</span>
           <b class="hp-val" id="heroFloatingPnL">+¥0.00</b>
           <span class="hp-sub" id="heroFloatingPct">+0.00%</span>
+        </div>
+        <div class="hp-item">
+          <span class="hp-lab">已实现利润</span>
+          <b class="hp-val" id="heroRealizedPnL">¥0.00</b>
+          <span class="hp-sub" id="heroRealizedSub" style="font-size:10px;color:var(--text-3);">落袋收益</span>
         </div>
         <div class="hp-item">
           <span class="hp-lab">今日浮盈</span>
@@ -412,6 +417,9 @@
         <div class="sr-row"><span>预计收益率</span><b class="text-up" id="ssrReturnPct">+—%</b></div>
       </div>
       <p class="sim-hint">未计交易手续费与税费，仅为理论模拟测算。</p>
+      <div style="margin-top:12px;text-align:center;">
+        <button class="btn btn-outline" id="btnExecuteSell" style="width:100%;padding:10px 0;font-size:14px;border-color:rgba(0,0,0,0.12);font-weight:600;">💰 确认按此价格卖出并结转利润</button>
+      </div>
     </section>
 
     <!-- ⚖️ 理论回本价格与交易费用 -->
@@ -2384,7 +2392,8 @@
   <div id="toast" class="toast" hidden></div>
 </div>
 
-<script src="vendor/cloudbase.js?v=20260901auditedv1"></script>
-<script src="js/app.js?v=20260901auditedv1"></script>
+<script src="vendor/cloudbase.js?v=20260903v1"></script>
+<script src="config.js?v=20260903v1"></script>
+<script src="js/app.js?v=20260903v1"></script>
 </body>
 </html>

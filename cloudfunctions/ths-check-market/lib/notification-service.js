@@ -199,10 +199,15 @@ async function sendViaWechatMp(appId, secret, templateId, openId, alert) {
         .toISOString().replace('T', ' ').slice(0, 19)
     : '未知';
 
+  const envId = (process.env.TCB_ENV || process.env.SCF_NAMESPACE || '').trim();
+  const appUrl = (process.env.THS_APP_URL || '').trim() ||
+    (envId ? `https://${envId}-1420504604.tcloudbaseapp.com/ths/` : '') ||
+    'https://cloud1-2g9rok55baecfa37-1420504604.tcloudbaseapp.com/ths/';
+
   const payload = {
     touser: targetOpenId,
     template_id: templateId,
-    url: 'https://REDACTED_CLOUDBASE_ENV_ID-1420504604.tcloudbaseapp.com/ths/',
+    url: appUrl,
     data: {
       first: { value: `🔔 盯价提醒：${alert.name} 已达到${action}价格！`, color },
       name: { value: `${alert.name} (${typeLabel})`, color: '#1f2329' },
@@ -231,10 +236,12 @@ function buildWechatMessage(alert) {
         .toISOString().replace('T', ' ').slice(0, 19)
     : '未知';
 
+  const isUs = alert.market === 'US' || (alert.code && /^[A-Z0-9.\-]{1,10}$/.test(alert.code) && !/^\d{6}$/.test(alert.code));
+  const sym = isUs ? '$' : '¥';
   const isBuy = alert.alertType === 'buy';
   const emoji = isBuy ? '🟢' : '🔴';
   const action = isBuy ? '买入' : '卖出';
-  const typeLabel = alert.type === 'etf' ? 'ETF' : '股票';
+  const typeLabel = alert.type === 'etf' ? (isUs ? '美股ETF' : 'ETF') : (isUs ? '美股' : '股票');
 
   return {
     title: `🔔 盯价提醒 | ${alert.name} 已达到${action}价格`,
@@ -244,8 +251,8 @@ function buildWechatMessage(alert) {
       `${typeLabel}名称：${alert.name}`,
       `${typeLabel}代码：${alert.code}`,
       '',
-      `当前价格：¥${alert.currentPrice}`,
-      `我的${action}价：¥${alert.triggerPrice}`,
+      `当前价格：${sym}${alert.currentPrice}`,
+      `我的${action}价：${sym}${alert.triggerPrice}`,
       '',
       `系统检测时间：${time}`,
       '',

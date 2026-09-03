@@ -5,10 +5,12 @@
  */
 'use strict';
 
-/* ---------------- 云环境配置（请替换为你自己的 CloudBase 配置） ---------------- */
-const ENV_ID = 'YOUR_CLOUDBASE_ENV_ID';           // 替换为你的 CloudBase 环境 ID
-const REGION = 'ap-shanghai';                      // 替换为你的 CloudBase 地域
-const ACCESS_KEY = 'YOUR_CLOUDBASE_ACCESS_KEY';    // 替换为你的 CloudBase Publishable Key（匿名登录凭证）
+/* ---------------- 云环境配置 ---------------- */
+// 优先从外部配置文件 config.js 读取（支持生产环境独立注入与开源模板隔离）
+const _cfg = window.__DINGJIA_CONFIG__ || {};
+const ENV_ID = _cfg.envId || 'YOUR_CLOUDBASE_ENV_ID';
+const REGION = _cfg.region || 'ap-shanghai';
+const ACCESS_KEY = _cfg.accessKey || 'YOUR_CLOUDBASE_ACCESS_KEY';
 
 const PHASE_LABELS = {
   trading: '监控中',
@@ -575,7 +577,7 @@ function updateRadarCard() {
   let anomalyCount = 0;
 
   for (const w of ws) {
-    if (!w.enabled || typeof w.currentPrice !== 'number') continue;
+    if (!w.enabled || typeof w.currentPrice !== 'number' || w.currentPrice <= 0) continue;
     const price = w.currentPrice;
     if (w.buyPrice != null && price > w.buyPrice) {
       const distPct = ((price - w.buyPrice) / price) * 100;
@@ -824,7 +826,7 @@ function renderWatches() {
           else if (days <= 10) cdCls = 'cd-warn';
         }
 
-        const inNearBuy = w.buyPrice != null && w.currentPrice != null && w.currentPrice > w.buyPrice && ((w.currentPrice - w.buyPrice) / w.currentPrice) < 0.05;
+        const inNearBuy = w.buyPrice != null && w.currentPrice != null && w.currentPrice > 0 && w.currentPrice > w.buyPrice && ((w.currentPrice - w.buyPrice) / w.currentPrice) < 0.05;
         let comboAlert = '';
         if (inNearBuy && days != null && days >= 0 && days <= 5) {
           comboAlert = '<span class="div-combo-tag">💰 分红临近 ⚠️ 价格接近买入线</span>';
@@ -915,6 +917,13 @@ function renderPortfolio() {
   const fppEl = $('#heroFloatingPct');
   fppEl.textContent = fmtPct(fpp);
   fppEl.className = `hp-sub ${fpp > 0 ? 'text-up' : fpp < 0 ? 'text-down' : 'flat'}`;
+
+  const rp = sum.totalRealizedPnL || 0;
+  const rpEl = $('#heroRealizedPnL');
+  if (rpEl) {
+    rpEl.textContent = fmtSignedMoney(rp, curr);
+    rpEl.className = `hp-val ${rp > 0 ? 'text-up' : rp < 0 ? 'text-down' : 'flat'}`;
+  }
 
   const tp = sum.todayTotalPnL || 0;
   const tpEl = $('#heroTodayPnL');
@@ -1266,7 +1275,7 @@ function renderCheckupCard(h) {
 
   // 2. 年内回撤
   const ddEl = $('#ckDd');
-  if (p.yearHigh && h.currentPrice) {
+  if (p.yearHigh && p.yearHigh > 0 && h.currentPrice) {
     const dd = ((h.currentPrice - p.yearHigh) / p.yearHigh) * 100;
     if (dd < -20) {
       ddEl.textContent = `${dd.toFixed(1)}% 🔴`;
@@ -1621,16 +1630,41 @@ function calcSimBuy() {
   const a = parseFloat($('#simBuyAmount').value);
   if (!Number.isFinite(p) || p <= 0 || !Number.isFinite(a) || a <= 0) return;
 
-  const addShares = Math.floor(a / p);
+  const rawShares = Math.floor(a / p);
+  // A 股/中国市场买入必须为 100 股（1手）的整数倍；美股支持 1 股起投
+  const addShares = isUs ? rawShares : Math.floor(rawShares / 100) * 100;
+
+  if (addShares <= 0) {
+    const minUnit = isUs ? '1 股' : '1 手 (100 股)';
+    $('#sbrAddShares').textContent = `0 股 (资金不足 ${minUnit})`;
+    $('#sbrTotalShares').textContent = `${h.quantity} 股`;
+    $('#sbrTotalCost').textContent = fmtMoney(h.costAmount, curr);
+    $('#sbrNewCost').textContent = `${sym}${h.costPrice.toFixed(2)}/股 (持平)`;
+    return;
+  }
+
   const totalShares = h.quantity + addShares;
   const addCost = round(addShares * p, 2);
+  const remainingCash = round(a - addCost, 2);
   const totalCost = round(h.costAmount + addCost, 2);
   const newCostPrice = totalShares > 0 ? round(totalCost / totalShares, 2) : 0;
 
-  $('#sbrAddShares').textContent = `${addShares} 股`;
+  // 成本变化文案规范：降低 / 提高 / 持平，杜绝“降 ¥-x.xx”
+  const costDiff = round(h.costPrice - newCostPrice, 2);
+  let costChangeText = '';
+  if (costDiff > 0) {
+    costChangeText = `(降低 ${sym}${costDiff.toFixed(2)})`;
+  } else if (costDiff < 0) {
+    costChangeText = `(提高 ${sym}${Math.abs(costDiff).toFixed(2)})`;
+  } else {
+    costChangeText = `(持平)`;
+  }
+
+  const remainText = (!isUs && remainingCash > 0) ? ` (留存零钱 ${sym}${remainingCash.toFixed(2)})` : '';
+  $('#sbrAddShares').textContent = `${addShares} 股${remainText}`;
   $('#sbrTotalShares').textContent = `${totalShares} 股`;
   $('#sbrTotalCost').textContent = fmtMoney(totalCost, curr);
-  $('#sbrNewCost').textContent = `${sym}${newCostPrice.toFixed(2)}/股 (降 ${sym}${(h.costPrice - newCostPrice).toFixed(2)})`;
+  $('#sbrNewCost').textContent = `${sym}${newCostPrice.toFixed(2)}/股 ${costChangeText}`;
 }
 
 function calcSimSell() {
@@ -1675,6 +1709,61 @@ function bindHoldingDetailEvents() {
   $('#simBuyAmount').addEventListener('input', calcSimBuy);
   $('#simSellPrice').addEventListener('input', calcSimSell);
   $('#simSellShares').addEventListener('input', calcSimSell);
+
+  const btnSell = $('#btnExecuteSell');
+  if (btnSell) {
+    btnSell.addEventListener('click', async () => {
+      const h = findDetailHolding();
+      if (!h) return;
+      const isUs = (h.market === 'US') || (!h.market && !/^\d{6}$/.test(h.code));
+      const sym = isUs ? '$' : '¥';
+      const p = parseFloat($('#simSellPrice').value);
+      const qty = parseInt($('#simSellShares').value, 10);
+      if (!Number.isFinite(p) || p <= 0) return toast('请输入有效的卖出价格');
+      if (!Number.isFinite(qty) || qty <= 0) return toast('请输入有效的卖出股数');
+      if (qty > h.quantity) return toast(`卖出股数 (${qty}) 不能大于当前持有股数 (${h.quantity})`);
+
+      const totalAmt = round(qty * p, 2);
+      const profit = round(totalAmt - round(qty * h.costPrice, 2), 2);
+      const isClosed = qty === h.quantity;
+      const confirmMsg = `确定以 ${sym}${p.toFixed(2)} 卖出 ${qty} 股${esc(h.name)}？\n` +
+        `• 回收现金：${sym}${totalAmt.toFixed(2)}\n` +
+        `• 结转已实现利润：${profit >= 0 ? '+' : ''}${sym}${profit.toFixed(2)}\n` +
+        `• 操作类型：${isClosed ? '清仓平仓' : `减仓 (剩余 ${h.quantity - qty} 股)`}`;
+
+      if (!confirm(confirmMsg)) return;
+
+      btnSell.disabled = true;
+      btnSell.textContent = '正在处理卖出结转…';
+      try {
+        const res = await call('ths-update-holding', {
+          _id: h._id,
+          action: 'sell',
+          sellPrice: p,
+          sellQuantity: qty,
+          note: isClosed ? '全部卖出清仓' : '部分卖出减仓',
+        });
+        if (res && res.ok) {
+          toast(`已成功卖出！实现利润 ${profit >= 0 ? '+' : ''}${sym}${profit.toFixed(2)} 已转入现金账户`);
+          await loadPortfolio();
+          if (isClosed) {
+            switchView('portfolio');
+          } else {
+            const updatedH = (state.portfolio.holdings || []).find((x) => x._id === h._id);
+            if (updatedH) openHoldingDetail(updatedH);
+            else switchView('portfolio');
+          }
+        } else {
+          toast(`卖出失败：${(res && res.error) || '未知错误'}`);
+        }
+      } catch (err) {
+        toast(`卖出异常：${err.message}`);
+      } finally {
+        btnSell.disabled = false;
+        btnSell.textContent = '💰 确认按此价格卖出并结转利润';
+      }
+    });
+  }
 
   document.querySelectorAll('#simQuickPrices button').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -2135,7 +2224,7 @@ function distCardHtml(w, side) {
   const isUs = isUsStock(w);
   const sym = isUs ? '$' : '¥';
   const label = side === 'buy' ? '买入价' : '卖出价';
-  if (typeof w.currentPrice !== 'number') {
+  if (typeof w.currentPrice !== 'number' || w.currentPrice <= 0) {
     return `<div class="dist-card ${side}"><div class="dist-label">${label} <b>${sym}${fmtPrice(line, w.type, w.market)}</b></div><div class="dist-val st-wait">待行情</div></div>`;
   }
   const hit = side === 'buy' ? w.currentPrice <= line : w.currentPrice >= line;
@@ -4465,6 +4554,22 @@ function downloadTextFile(filename, content) {
 
 /* ---------------- 启动 ---------------- */
 async function boot() {
+  if (!ENV_ID || ENV_ID === 'YOUR_CLOUDBASE_ENV_ID' || !ACCESS_KEY || ACCESS_KEY === 'YOUR_CLOUDBASE_ACCESS_KEY') {
+    const bootEl = $('#boot');
+    if (bootEl) {
+      bootEl.innerHTML = `<div style="text-align:center;padding:24px 20px;max-width:440px;margin:0 auto">
+        <p style="font-size:22px;font-weight:700;margin-bottom:12px">🌱 欢迎使用盯价</p>
+        <p style="font-size:14px;color:#1d1d1f;line-height:1.6;margin-bottom:18px">检测到尚未配置云开发凭据。请完成本地配置后使用：</p>
+        <div style="background:rgba(0,0,0,0.04);border-radius:12px;padding:14px;text-align:left;font-size:13px;color:#4b5563;line-height:1.8;margin-bottom:18px">
+          1. 复制 <code>web/config.example.js</code> 为 <code>web/config.js</code><br>
+          2. 填入你的 CloudBase <code>envId</code> 和 <code>accessKey</code><br>
+          3. 刷新本页面即可正常启动
+        </div>
+        <p style="font-size:12px;color:#86868b">详细指引请参阅项目 README.md</p>
+      </div>`;
+    }
+    return;
+  }
   try {
     const savedSettings = localStorage.getItem('ths_user_settings');
     if (savedSettings) {

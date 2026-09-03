@@ -102,13 +102,14 @@ exports.main = async (event = {}) => {
   const nowMs = Date.now();
 
   try {
-    const [holdingsSnap, accountsSnap, watchSnap, settingsSnap, plansSnap, userSettingsSnap] = await Promise.all([
+    const [holdingsSnap, accountsSnap, watchSnap, settingsSnap, plansSnap, userSettingsSnap, txSnap] = await Promise.all([
       safeQuery(() => db.collection(HOLDINGS_COLL).orderBy('createdAt', 'desc').get()),
       safeQuery(() => db.collection(ACCOUNTS_COLL).limit(10).get()),
       safeQuery(() => db.collection(WATCH_COLL).get()),
       safeQuery(() => db.collection(CONFIG_COLL).where({ key: 'settings' }).limit(1).get()),
       safeQuery(() => db.collection(PLANS_COLL).get()),
       safeQuery(() => db.collection(SETTINGS_COLL).limit(1).get()),
+      safeQuery(() => db.collection('ths_transactions').orderBy('createdAt', 'desc').limit(200).get()),
     ]);
 
     const holdingsRaw = holdingsSnap.data || [];
@@ -396,6 +397,22 @@ exports.main = async (event = {}) => {
       if (!reachSell && distSellPct !== null && distSellPct <= 5.0) nearSellHoldings.push(item);
     }
 
+    // 已实现利润核算（基于 ths_transactions 历史卖出平仓数据）
+    const txList = (txSnap && txSnap.data) || [];
+    let cnRealizedPnL = 0;
+    let usRealizedPnL = 0;
+    for (const tx of txList) {
+      if (tx.type === 'SELL' && typeof tx.realizedPnL === 'number') {
+        if (tx.currency === 'USD' || tx.market === 'US') {
+          usRealizedPnL += tx.realizedPnL;
+        } else {
+          cnRealizedPnL += tx.realizedPnL;
+        }
+      }
+    }
+    cnStat.realizedPnL = round(cnRealizedPnL, 2);
+    usStat.realizedPnL = round(usRealizedPnL, 2);
+
     const cnTotalMv = round(cnStat.stockMv + cnStat.etfMv, 2);
     const cnTotalAsset = round(cnTotalMv + cashBalanceCn, 2);
     const cnFloatingPnLPct = cnStat.cost > 0 ? round((cnStat.floatPnL / cnStat.cost) * 100, 2) : 0;
@@ -427,6 +444,8 @@ exports.main = async (event = {}) => {
       totalCost: round(cnStat.cost, 2),
       totalFloatingPnL: round(cnStat.floatPnL, 2),
       totalFloatingPnLPct: cnFloatingPnLPct,
+      totalRealizedPnL: cnStat.realizedPnL,
+      totalCumulativePnL: round(cnStat.floatPnL + cnStat.realizedPnL, 2),
       todayTotalPnL: round(cnStat.todayPnL, 2),
       totalExpectedDividend: round(cnStat.dividend, 2),
       totalPlannedAmount: round(cnStat.planned, 2),
@@ -447,6 +466,8 @@ exports.main = async (event = {}) => {
       totalCost: round(usStat.cost, 2),
       totalFloatingPnL: round(usStat.floatPnL, 2),
       totalFloatingPnLPct: usFloatingPnLPct,
+      totalRealizedPnL: usStat.realizedPnL,
+      totalCumulativePnL: round(usStat.floatPnL + usStat.realizedPnL, 2),
       todayTotalPnL: round(usStat.todayPnL, 2),
       totalExpectedDividend: round(usStat.dividend, 2),
       totalPlannedAmount: round(usStat.planned, 2),
@@ -479,6 +500,7 @@ exports.main = async (event = {}) => {
       holdings,
       accounts,
       plans,
+      recentTransactions: (txList || []).slice(0, 30),
       opportunities: {
         reachSell: reachSellHoldings,
         reachBuy: reachBuyHoldings,
