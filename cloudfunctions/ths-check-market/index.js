@@ -149,6 +149,7 @@ exports.main = async (event = {}) => {
     }
   }
 
+  const nowMs = startedAt;
   const now = new Date(startedAt);
 
   for (const w of watches) {
@@ -174,7 +175,6 @@ exports.main = async (event = {}) => {
     const rearm = {}; // 需要复位（重新武装）的触发标记
 
     // 跨日重置与触发状态判定（P1-2：美股严格按美东时区 America/New_York，A股按北京时区 Asia/Shanghai）
-    const isUs = w.market === 'US';
     const currentMarketParts = isUs ? usNewYorkParts(nowMs) : beijingParts(nowMs);
     const marketToday = currentMarketParts.compactDate;
 
@@ -246,7 +246,6 @@ exports.main = async (event = {}) => {
         if (claimed) {
           for (const t of triggers) {
             const targetP = t === 'buy' ? w.buyPrice : w.sellPrice;
-            const isUs = w.market === 'US';
             const touchDoc = {
               watchId: w._id,
               market: isUs ? 'US' : 'CN',
