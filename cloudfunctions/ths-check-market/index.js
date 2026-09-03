@@ -193,16 +193,30 @@ exports.main = async (event = {}) => {
       if (w.buyPrice != null && price <= w.buyPrice && !buyTriggerLocked) triggers.push('buy');
       if (w.sellPrice != null && price >= w.sellPrice && !sellTriggerLocked) triggers.push('sell');
     } else {
-      // 买入线：处于买入目标区且当日未发过（或未加锁）时触发；回升到上方后自动重新武装
+      // 买入线：处于买入目标区且当日未发过（或未加锁）时触发；回升到上方后自动重新武装并清空达成标记
       if (w.buyPrice != null) {
         if (!buyTriggerLocked && price <= w.buyPrice) triggers.push('buy');
-        else if (w.buyTriggered && price > w.buyPrice) rearm.buyTriggered = false;
+        else if ((w.buyTriggered || w.buyAchievedAt) && price > w.buyPrice) {
+          rearm.buyTriggered = false;
+          rearm.buyAchievedAt = null;
+        }
       }
-      // 卖出线：处于卖出目标区且当日未发过（或未加锁）时触发；回落到下方后自动重新武装
+      // 卖出线：处于卖出目标区且当日未发过（或未加锁）时触发；回落到下方后自动重新武装并清空达成标记
       if (w.sellPrice != null) {
         if (!sellTriggerLocked && price >= w.sellPrice) triggers.push('sell');
-        else if (w.sellTriggered && price < w.sellPrice) rearm.sellTriggered = false;
+        else if ((w.sellTriggered || w.sellAchievedAt) && price < w.sellPrice) {
+          rearm.sellTriggered = false;
+          rearm.sellAchievedAt = null;
+        }
       }
+    }
+
+    // 跨日状态重置：新交易日且当前价格不在目标区间时，彻底清空前一交易日的残留达成与触发标记
+    if (isNewTradingDay) {
+      if (w.buyAchievedAt && (w.buyPrice == null || price > w.buyPrice)) rearm.buyAchievedAt = null;
+      if (w.sellAchievedAt && (w.sellPrice == null || price < w.sellPrice)) rearm.sellAchievedAt = null;
+      if (w.buyTriggered && (w.buyPrice == null || price > w.buyPrice)) rearm.buyTriggered = false;
+      if (w.sellTriggered && (w.sellPrice == null || price < w.sellPrice)) rearm.sellTriggered = false;
     }
 
     const baseUpdate = {

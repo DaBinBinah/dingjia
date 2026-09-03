@@ -657,8 +657,10 @@ function renderWatches() {
   if (marketFilter === 'CN') watches = watches.filter((w) => (w.market || 'CN') === 'CN');
   else if (marketFilter === 'US') watches = watches.filter((w) => w.market === 'US');
 
-  if (watchFilter === 'done') watches = watches.filter((w) => w.enabled && (w.buyAchievedAt || w.sellAchievedAt));
-  else if (watchFilter === 'active') watches = watches.filter((w) => !w.enabled || !(w.buyAchievedAt || w.sellAchievedAt));
+  const isHit = (w) => (w.buyPrice != null && w.currentPrice != null && w.currentPrice <= w.buyPrice) ||
+                       (w.sellPrice != null && w.currentPrice != null && w.currentPrice >= w.sellPrice);
+  if (watchFilter === 'done') watches = watches.filter((w) => w.enabled && isHit(w));
+  else if (watchFilter === 'active') watches = watches.filter((w) => w.enabled && !isHit(w));
 
   if (!watches.length) {
     list.innerHTML = '';
@@ -698,15 +700,15 @@ function renderWatches() {
   }
   empty.hidden = true;
 
-  // 🎯 智能置顶排序：达标标的排在最前列，正常监控标的中次之，已暂停标的沉底
+  // 🎯 智能置顶排序：当前实时达标的标的排在最前列，正常监控标的次之，已暂停标的沉底
   watches.sort((a, b) => {
     const aInBuy = a.buyPrice != null && a.currentPrice != null && a.currentPrice <= a.buyPrice;
     const aInSell = a.sellPrice != null && a.currentPrice != null && a.currentPrice >= a.sellPrice;
-    const aHit = a.enabled && (aInBuy || aInSell || a.buyAchievedAt || a.sellAchievedAt || a.buyTriggered || a.sellTriggered);
+    const aHit = a.enabled && (aInBuy || aInSell);
 
     const bInBuy = b.buyPrice != null && b.currentPrice != null && b.currentPrice <= b.buyPrice;
     const bInSell = b.sellPrice != null && b.currentPrice != null && b.currentPrice >= b.sellPrice;
-    const bHit = b.enabled && (bInBuy || bInSell || b.buyAchievedAt || b.sellAchievedAt || b.buyTriggered || b.sellTriggered);
+    const bHit = b.enabled && (bInBuy || bInSell);
 
     const aScore = aHit ? 0 : a.enabled ? 1 : 2;
     const bScore = bHit ? 0 : b.enabled ? 1 : 2;
@@ -730,10 +732,8 @@ function renderWatches() {
       const inSell = w.sellPrice != null && w.currentPrice != null && w.currentPrice >= w.sellPrice;
       const cardCls = ['card'];
       if (!w.enabled) cardCls.push('paused');
-      else if (w.enabled && (inBuy || inSell)) {
-        if (inBuy) cardCls.push('triggered-buy');
-        else cardCls.push('triggered-sell');
-      } else if (w.enabled && (w.buyAchievedAt || w.sellAchievedAt)) cardCls.push('done');
+      else if (inBuy) cardCls.push('triggered-buy');
+      else if (inSell) cardCls.push('triggered-sell');
 
       let badge = '';
       let pinBadge = '';
@@ -745,9 +745,6 @@ function renderWatches() {
           badge = '<span class="chip chip-sell-hit"><span class="pulse-dot sell"></span>🎯 已达到卖出价格 · 置顶</span>';
           pinBadge = '<div class="card-pin-badge sell">📌 达标置顶</div>';
         }
-      } else if (w.enabled && (w.buyAchievedAt || w.sellAchievedAt)) {
-        badge = '<span class="chip chip-done"><span class="pulse-dot purple"></span>🏁 目标已达成</span>';
-        pinBadge = '<div class="card-pin-badge done">🏁 已达成</div>';
       } else if (!w.enabled) {
         badge = '<span class="chip chip-off">已暂停</span>';
       } else {

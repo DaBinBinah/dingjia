@@ -223,8 +223,8 @@ test('13. 前端配置注入与引导：支持 config.js 独立注入，未配�
 // -------------------------------------------------------------
 test('14. 语法与静态资源版本：HTML 文件包含正确的 config.js 引入与统一版本标签', () => {
   const html = fs.readFileSync(path.join(__dirname, '../web/index.html'), 'utf8');
-  assert(html.includes('config.js?v=20260903v1'), 'index.html 必须引入 config.js');
-  assert(html.includes('app.js?v=20260903v1'), 'app.js 必须更新版本号');
+  assert(html.includes('config.js?v=20260903v2'), 'index.html 必须引入 config.js');
+  assert(html.includes('app.js?v=20260903v2'), 'app.js 必须更新版本号');
 });
 
 // -------------------------------------------------------------
