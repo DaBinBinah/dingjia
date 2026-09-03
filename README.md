@@ -43,8 +43,15 @@
    - 批量导入监控标的
    - 12 节新手指南
    - AI 大盘每日收评与持仓归因
+<p align="center">
+  <img src="docs/images/screenshot.png" width="98%" alt="盯价概览" />
+</p>
 
-![screenshot](docs/images/screenshot.png)
+<p align="center">
+  <img src="docs/images/ScreenShot_2026-09-03_224724_449.png" width="48%" alt="投资雷达与大盘看板" />
+  <img src="docs/images/ScreenShot_2026-09-03_224742_236.png" width="48%" alt="标的详情与目标价触达" />
+</p>
+<p align="center"><em>左：投资雷达与中美核心指数看板 ｜ 右：标的监控与买入目标价触达</em></p>
 
 ## 数据来源
 | 市场 | 数据源 | 说明 |
