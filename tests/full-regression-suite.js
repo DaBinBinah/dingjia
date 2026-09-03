@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 console.log('================================================================');
-console.log('🚀 盯价 (DingJia) v1.0.1 全链路深度回归测试套件 (15项重点核验)');
+console.log('🚀 盯价 (DingJia) v1.0.2 全链路深度回归测试套件 (15项重点核验)');
 console.log('================================================================\n');
 
 let passedCount = 0;
